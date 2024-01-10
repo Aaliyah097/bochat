@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1">
+    <title>BoChat</title>
+</head>
+<body>
+
+<style>
+    .container{
+        display: flex;
+    }
+
+    .column{
+        flex: 1;
+        padding: 10px;
+        border: 1px solid black;
+    }
+</style>
+
+<div id="main" class="container">
+    <div class="column" id="chats_container">
+        <div class="container">
+            <div class="column">
+                <span>Мои чаты</span>
+                <input type="text" id="user_id"/>
+                <button onclick="start()">Старт</button>
+            </div>
+            <div class="column">
+                <span id="profile"></span>
+            </div>
+        </div>
+    </div>
+    <div class="column" id="chat_block">
+        <div id="messages">
+
+        </div>
+        <br>
+        <div>
+            <form onsubmit="sendMessage(event)">
+                <textarea style="width: 100% !important;" id="message" type="text" name="message" placeholder="|"></textarea>
+                <button>Отправить</button>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    // chats
+    async function get_chats(user_id){
+        let response = await fetch("/chats?user_id=" + user_id);
+
+        if (response.ok){
+            return await response.json();
+        }else{
+            console.log(response.status, await response.text());
+        }
+    }
+    async function display_chats(user_id){
+        let chats = await get_chats(user_id);
+        let chat_el = document.getElementById("chats_container");
+        chats.forEach((chat)=>{
+            let chat_block = document.createElement("div");
+            chat_block.id = `chat_${chat.id}`;
+            chat_block.style.border = "1px solid black";
+            chat_block.innerText = chat.name;
+            chat_block.onclick = function (){
+                display_messages(chat.id, user_id);
+            };
+            chat_el.appendChild(chat_block);
+        })
+    }
+</script>
+<script>
+    // users
+    function start(){
+        let USER_ID = document.getElementById("user_id").value;
+        display_user(USER_ID);
+        display_chats(USER_ID);
+    }
+    async function get_user(user_id){
+        let response = await fetch("/me?user_id=" + user_id);
+
+        if (response.ok){
+            return await response.json();
+        }else {
+            console.log(response.status, await response.text());
+        }
+    }
+    async function display_user(user_id){
+        let user = await get_user(user_id);
+        let profile_block = document.getElementById("profile");
+        profile_block.innerText = user.name;
+    }
+</script>
+<script>
+    // messages
+    let WS = null;
+    async function get_messages(chat_id) {
+        let response = await fetch("/messages?chat_id=" + chat_id);
+
+        if (response.ok) {
+            return await response.json();
+        } else {
+            console.log(response.status, await response.text());
+        }
+    }
+    async function display_messages(chat_id, user_id){
+        let messages = await get_messages(chat_id);
+        let chat_el = document.getElementById(`messages`);
+        chat_el.innerText = "";
+        messages.forEach((message)=>{
+            chat_el.appendChild(create_message_block(message, user_id));
+            chat_el.appendChild(document.createElement("br"));
+            chat_el.appendChild(document.createElement("br"));
+        });
+        WS = get_ws(user_id, chat_id);
+    }
+    function create_message_block(message, user_id){
+        let message_block = document.createElement("textarea");
+        message_block.textContent = message.id;
+        message_block.style.width = "40%";
+        message_block.style.backgroundColor = "lightblue";
+        if (message.user_id == user_id){
+            message_block.style.float = "right";
+            message_block.style.backgroundColor = "lightgreen";
+        }
+        return message_block
+    }
+</script>
+<script>
+    // websocket
+    function get_ws(user_id, chat_id){
+        let ws = new WebSocket(
+            `ws://localhost:8000/messages/connect?chat_id=${chat_id}&user_id=${user_id}&layer=1`
+        );
+        ws.onmessage = function(event) {
+            let messages = document.getElementById('messages');
+            messages.appendChild(create_message_block(JSON.parse(event.data)['message'], user_id));
+            messages.appendChild(document.createElement("br"));
+            messages.appendChild(document.createElement("br"));
+        };
+        return ws
+    }
+    function sendMessage(event) {
+        let input = document.getElementById("message");
+        WS.send(input.value);
+        input.value = "";
+        event.preventDefault();
+    }
+</script>
+</body>
+</html>
