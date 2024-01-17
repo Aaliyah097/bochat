@@ -24,6 +24,7 @@ services:
     networks:
       - local_network
   web:
+    container_name: web-app-chat
     build:
       context: .
       dockerfile: Dockerfile

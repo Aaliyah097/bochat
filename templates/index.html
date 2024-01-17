@@ -131,7 +131,7 @@
     // websocket
     function get_ws(user_id, chat_id){
         let ws = new WebSocket(
-            `ws://localhost:8000/messages/connect?chat_id=${chat_id}&user_id=${user_id}&layer=1`
+            `ws://127.0.0.1:8080/messages/connect?chat_id=${chat_id}&user_id=${user_id}&layer=1`
         );
         ws.onmessage = function(event) {
             let messages = document.getElementById('messages');
