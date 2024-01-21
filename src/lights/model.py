@@ -102,7 +102,7 @@ class Light:
 
         likes = 0
         for amount, prob in probabilities.items():
-            likes = prob
+            likes = amount
             if chance <= prob:
                 break
 
