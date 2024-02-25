@@ -11,6 +11,14 @@ chat_router = APIRouter(prefix="/messages", tags=["messages"])
 socket_manager: WebSocketManager = WebSocketManager()
 
 
+@chat_router.post("/",
+                  summary="Пометить сообщения прочитанными")
+@inject
+async def mark_read(messages_ids: list[int],
+                    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])):
+    return await messages_repo.mark_read(messages_ids)
+
+
 @chat_router.get("/",
                  summary='Список сообщений конкретного чата',
                  response_model=List[Message])
@@ -45,6 +53,10 @@ async def on_message_event(websocket: WebSocket,
             data = await websocket.receive_text()
             if len(data) == 0:
                 continue
+            if data == "PING":
+                await websocket.send_text("PONG")
+                continue
+
             message = Message(
                 user_id=user_id,
                 chat_id=chat_id,

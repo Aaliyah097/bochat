@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, func, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from database import Base
 
 
@@ -11,4 +11,5 @@ class Messages(Base):
     chat_id = Column(Integer, nullable=False)
     reply_id = Column(Integer, nullable=True, default=None)
     is_edited = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime)
+    is_read = Column(Boolean, default=False)

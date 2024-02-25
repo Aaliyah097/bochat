@@ -10,3 +10,4 @@ class Message(BaseModel):
     is_edited: bool = False
     id: int | None = None
     reply_id: int | None = None
+    is_read: bool = False

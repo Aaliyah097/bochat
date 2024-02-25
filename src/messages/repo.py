@@ -1,5 +1,7 @@
+import datetime
+import pytz
 from typing import List
-from sqlalchemy.sql import select
+from sqlalchemy.sql import select, update
 from sqlalchemy import desc
 from src.messages.model import Message
 from src.messages.table import Messages
@@ -24,6 +26,7 @@ class MessagesRepo(Repository):
 
     async def add_message(self, message: Message) -> Message:
         db_model = Messages(**message.model_dump())
+        db_model.created_at = datetime.datetime.now().astimezone(pytz.timezone('Europe/Moscow')).now()
         async with self.session_factory() as session:
             session.add(db_model)
             await session.commit()
@@ -40,6 +43,12 @@ class MessagesRepo(Repository):
             await session.refresh(message)
             return self.dto_from_dbo(message, Message)
 
+    async def mark_read(self, messages_ids: list[int]) -> None:
+        async with self.session_factory() as session:
+            query = update(Messages).where(Messages.id.in_(messages_ids)).values(is_read=True)
+            await session.execute(query)
+            await session.commit()
+
     async def list_messages(self, chat_id: int, page: int = 1, size: int = 50) -> List[Message]:
         offset = (page - 1) * size
         async with self.session_factory() as session:
@@ -50,4 +59,14 @@ class MessagesRepo(Repository):
                 .offset(offset).limit(size)
             )
             records = await session.execute(query)
-            return [self.dto_from_dbo(message, Message) for message in records.scalars().all()]
+            all_messages = [self.dto_from_dbo(message, Message) for message in records.scalars().all()]
+
+            query = (
+                select(Messages)
+                .filter(Messages.chat_id == chat_id, Messages.is_read == False)
+            )
+            records = await session.execute(query)
+            unread_messages = [self.dto_from_dbo(message, Message) for message in records.scalars().all()]
+
+            all_messages.extend(unread_messages)
+            return sorted(all_messages, key=lambda m: m.created_at, reverse=True)
