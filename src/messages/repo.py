@@ -63,7 +63,10 @@ class MessagesRepo(Repository):
 
             query = (
                 select(Messages)
-                .filter(Messages.chat_id == chat_id, Messages.is_read == False)
+                .filter(Messages.chat_id == chat_id,
+                        Messages.is_read == False,
+                        ~Messages.id.in_([message.id for message in all_messages])
+                        )
             )
             records = await session.execute(query)
             unread_messages = [self.dto_from_dbo(message, Message) for message in records.scalars().all()]
