@@ -1,9 +1,12 @@
+import time
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, WebSocket, Query, WebSocketDisconnect, WebSocketException, Body
 from dependency_injector.wiring import inject, Provide
+
 from src.messages.model import Message
 from container import AppContainer, MessagesRepo
 from src.sockets_manager import WebSocketManager
+from src import metrics
 
 
 chat_router = APIRouter(prefix="/messages", tags=["messages"])
@@ -27,7 +30,8 @@ async def list_messages(
         chat_id: int,
         page: Annotated[int, Query(ge=1)] = 1,
         size: Annotated[int, Query(ge=1)] = 15,
-        messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])
+        messages_repo: MessagesRepo = Depends(
+            Provide[AppContainer.messages_repo])
 ):
     return await messages_repo.list_messages(chat_id, page, size)
 
@@ -48,6 +52,7 @@ async def on_message_event(websocket: WebSocket,
                            ):
     await socket_manager.add_user_to_chat(chat_id, user_id, websocket)
     # событие входа в чат
+    metrics.ws_connections.inc()
     try:
         while True:
             data = await websocket.receive_text()
@@ -56,13 +61,21 @@ async def on_message_event(websocket: WebSocket,
             if data == "PING":
                 await websocket.send_text("PONG")
                 continue
+            start = time.time()
 
             message = Message(
                 user_id=user_id,
                 chat_id=chat_id,
                 text=data,
-                reply_id=reply_id
+                reply_id=reply_id,
+                is_read=False,
+                is_edited=False
             )
             await socket_manager.broadcast_to_chat(chat_id, message, users_layer=layer)
+            # Событие рассылки сообщений
+            metrics.ws_time_to_process.observe(time.time() - start)
+            metrics.ws_messages.inc()
     except (WebSocketDisconnect, WebSocketException):
         await socket_manager.remove_user_from_chat(chat_id, user_id)
+        # событие выхода из чата
+        metrics.ws_connections.dec()
