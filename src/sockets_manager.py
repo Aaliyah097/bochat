@@ -79,7 +79,8 @@ class WebSocketManager:
         while True:
             message = await pubsub_subscriber.get_message(ignore_subscribe_messages=True)
             if message is not None:
-                members = self.chats.get(chat_id, {}).values()
+                members = self.chats.get(chat_id, {})
+                members = members.values()
                 for socket in members:
                     data = message['data'].decode('utf-8')
                     try:

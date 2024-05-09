@@ -10,7 +10,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from src.messages import chat_router
 from src.lights.actions import lights_router
 from container import AppContainer
-from database import database
+# from database import database
 from config import settings
 # from src.notifications.queue_connector import RabbitMQPool
 
@@ -32,15 +32,15 @@ Instrumentator().instrument(app).expose(app)
 # rabbitmq_pool = RabbitMQPool()
 
 
-@app.on_event("startup")
-@inject
-async def startup():
-    await database.connect()
-    # await rabbitmq_pool.connect()
+# @app.on_event("startup")
+# @inject
+# async def startup():
+#     await database.connect()
+# await rabbitmq_pool.connect()
 
 
-@app.on_event("shutdown")
-@inject
-async def shutdown():
-    await database.disconnect()
-    # await rabbitmq_pool.close()
+# @app.on_event("shutdown")
+# @inject
+# async def shutdown():
+#     await database.disconnect()
+# await rabbitmq_pool.close()

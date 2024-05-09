@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from config import settings
 
 
-database = databases.Database(settings.postgres_conn_string)
+# database = databases.Database(settings.postgres_conn_string)
 
 Base = declarative_base()
 

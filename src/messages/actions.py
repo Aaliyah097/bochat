@@ -36,6 +36,44 @@ async def list_messages(
     return await messages_repo.list_messages(chat_id, page, size)
 
 
+@chat_router.get("/new", summary="Список новых сообщений для пользователя в чате", response_model=List[Message])
+@inject
+async def list_new_messages(
+    chat_id: int,
+    user_id: int,
+    page: Annotated[int, Query(ge=1)] = 1,
+    size: Annotated[int, Query(ge=1)] = 15,
+    messages_repo: MessagesRepo = Depends(
+        Provide[AppContainer.messages_repo])
+):
+    return await messages_repo.list_new_messages(chat_id, user_id, page, size)
+
+
+@chat_router.get("/new/count",
+                 summary="Количество новых сообщений для пользователя в чате",
+                 response_model=int)
+@inject
+async def new_nessages_count(
+    chat_id: int,
+    user_id: int,
+    messages_repo: MessagesRepo = Depends(
+        Provide[AppContainer.messages_repo])
+):
+    return await messages_repo.count_new_messages_in_chat(chat_id, user_id)
+
+
+@chat_router.get("/new/by-chats",
+                 summary="Количество новых сообщений для пользователя в каждом чате",
+                 response_model=dict[int, int])
+@inject
+async def count_new_nessages_by_chats(
+    user_id: int,
+    messages_repo: MessagesRepo = Depends(
+        Provide[AppContainer.messages_repo])
+):
+    return await messages_repo.count_new_messages_by_chats(user_id)
+
+
 @chat_router.patch("/{message_id}", response_model=Message)
 @inject
 async def edit_message(message_id: int, new_text: Annotated[str, Body()],
