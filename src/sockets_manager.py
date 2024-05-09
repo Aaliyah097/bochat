@@ -36,7 +36,8 @@ class WebSocketManager:
             pubsub_client = RedisPubSubManager()
             self.pubsub_clients[chat_id] = pubsub_client
             pubsub_subscriber = await pubsub_client.subscribe(chat_id)
-            asyncio.create_task(self._pubsub_data_reader(chat_id, pubsub_subscriber))
+            asyncio.create_task(self._pubsub_data_reader(
+                chat_id, pubsub_subscriber))
 
         self.chats[chat_id][user_id] = websocket
 
@@ -78,11 +79,10 @@ class WebSocketManager:
         while True:
             message = await pubsub_subscriber.get_message(ignore_subscribe_messages=True)
             if message is not None:
-                members = self.chats.get(chat_id, {})
-                members = members.values()
+                members = self.chats.get(chat_id, {}).values()
                 for socket in members:
                     data = message['data'].decode('utf-8')
                     try:
                         await socket.send_text(data)
                     except websockets.exceptions.ConnectionClosedOK as e:
-                        print(str(e))
+                        pass

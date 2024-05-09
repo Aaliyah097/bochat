@@ -2,3 +2,4 @@
 postgres-data/
 rabbitmq/
 grafana/
+__pycache__/
