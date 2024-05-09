@@ -9,7 +9,8 @@ from config import settings
 Base = declarative_base()
 
 engine = create_async_engine(
-    settings.postgres_conn_string
+    settings.postgres_conn_string,
+    pool_size=30
 )
 
 SessionFactory = sessionmaker(autocommit=False,
