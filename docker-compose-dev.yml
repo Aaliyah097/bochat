@@ -12,7 +12,7 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT:-5433}
     ports:
       - "${POSTGRES_PORT:-5433}:${POSTGRES_PORT:-5433}"
-    command: ["postgres", "-p", "${POSTGRES_PORT:-5433}"]
+    command: ["postgres", "-p", "${POSTGRES_PORT:-5433}", "-c", "max_connections=1000", "-c", "shared_buffers=512MB"]
     networks:
       - local_network
     volumes:
