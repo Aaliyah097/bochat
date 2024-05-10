@@ -31,8 +31,7 @@ class MessagesRepo(Repository):
         async with self.session_factory() as session:
             session.add(db_model)
             await session.commit()
-            await session.refresh(db_model)
-        return self.dto_from_dbo(db_model, Message)
+            return self.dto_from_dbo(db_model, Message)
 
     async def edit_message(self, message_id: int, new_text: str) -> Message:
         async with self.session_factory() as session:
@@ -41,7 +40,6 @@ class MessagesRepo(Repository):
                 raise Exception("Сообщение не найдено")
             message.text = new_text
             await session.commit()
-            await session.refresh(message)
             return self.dto_from_dbo(message, Message)
 
     async def mark_read(self, messages_ids: list[int]) -> None:
@@ -61,8 +59,9 @@ class MessagesRepo(Repository):
                 .offset(offset).limit(size)
             )
             records = await session.execute(query)
+            messages = records.scalars().all()
             return [self.dto_from_dbo(
-                message, Message) for message in records.scalars().all()]
+                message, Message) for message in messages]
 
     async def list_new_messages(self, chat_id: int, user_id: int, page: int | None = None, size: int | None = None) -> List[Message]:
         offset = (page - 1) * size
@@ -76,8 +75,9 @@ class MessagesRepo(Repository):
             )
 
             records = await session.execute(query)
+            messages = records.scalars().all()
             return [self.dto_from_dbo(
-                message, Message) for message in records.scalars().all()]
+                message, Message) for message in messages]
 
     async def count_new_messages_in_chat(self, chat_id: int, user_id: int) -> int:
         async with self.session_factory() as session:
@@ -90,7 +90,8 @@ class MessagesRepo(Repository):
                     AND is_read=false"""
                 )
             )
-            return records.scalar()
+            count = records.scalar()
+            return count
 
     async def count_new_messages_by_chats(self, user_id: int) -> dict:
         result = {}
@@ -106,7 +107,7 @@ class MessagesRepo(Repository):
                 )
             )
 
-            for record in records:
-                result[record[0]] = record[1]
+        for record in records:
+            result[record[0]] = record[1]
 
         return result

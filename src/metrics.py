@@ -17,4 +17,4 @@ def get_range(start: float = 0.150, stop: int = 0.750, step: float = 0.050) -> G
 
 
 ws_time_to_process = Histogram("ws_time_to_process", "Время на выполнение запроса",
-                               buckets=(*list(get_range(0, 1000, 50)), float('inf')))
+                               buckets=(*list(get_range(0, 300, 10)), float('inf')))
