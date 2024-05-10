@@ -100,6 +100,8 @@ async def on_message_event(websocket: WebSocket,
                 await websocket.send_text("PONG")
                 continue
 
+            start = time.time()
+
             message = Message(
                 user_id=user_id,
                 chat_id=chat_id,
@@ -110,6 +112,7 @@ async def on_message_event(websocket: WebSocket,
             )
             await socket_manager.broadcast_to_chat(chat_id, message, users_layer=layer)
             # Событие рассылки сообщений
+            metrics.ws_time_to_process.observe((time.time() - start) * 1000)
             metrics.ws_messages.inc()
     except (WebSocketDisconnect, WebSocketException):
         await socket_manager.remove_user_from_chat(chat_id, user_id)
