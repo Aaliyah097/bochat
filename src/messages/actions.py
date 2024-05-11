@@ -14,6 +14,8 @@ chat_router = APIRouter(prefix="/messages", tags=["messages"])
 
 socket_manager: WebSocketManager = WebSocketManager()
 
+broadcaster = WebSocketBroadcaster()
+
 
 @chat_router.post("/",
                   summary="Пометить сообщения прочитанными")
@@ -129,7 +131,6 @@ async def on_message_event_v2(websocket: WebSocket,
                               reply_id: Annotated[int | None, Query()] = None
                               ):
     await websocket.accept()
-    broadcaster = WebSocketBroadcaster()
 
     await run_until_first_complete(
         (broadcaster.chat_ws_receiver, {
