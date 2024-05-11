@@ -136,7 +136,7 @@ class WebSocketBroadcaster:
         async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
             async for event in subscriber:
                 message = Message.model_validate_json(event.message)
-                if int(message.user_id) != int(user_id):
+                if int(message.user_id) == int(user_id):
                     continue
 
                 try:
