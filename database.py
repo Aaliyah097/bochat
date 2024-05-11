@@ -15,6 +15,7 @@ engine = create_async_engine(
     echo=False,
     pool_pre_ping=True,
     poolclass=AsyncAdaptedQueuePool,
+    pool_recycle=7200,
     isolation_level="READ COMMITTED"
 )
 
