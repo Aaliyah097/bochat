@@ -147,7 +147,7 @@ class WebSocketBroadcaster:
                         try:
                             await session.close()
                         except Exception as e:
-                            logger.error(str(e))
+                            pass
 
                 time_diff = (message.created_at -
                              prev_message.created_at).total_seconds()
@@ -173,6 +173,6 @@ class WebSocketBroadcaster:
                         try:
                             await session.close()
                         except Exception as e:
-                            logger.error(str(e))
+                            pass
 
                 await websocket.send_text(package.model_dump_json())
