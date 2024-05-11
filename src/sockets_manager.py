@@ -131,47 +131,38 @@ class WebSocketBroadcaster:
         metrics.ws_connections.dec()
 
     async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int):
-        Session = None
-        try:
-            async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
-                async for event in subscriber:
-                    message = Message.model_validate_json(event.message)
-                    if int(message.user_id) != int(user_id):
-                        continue
+        async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
+            async for event in subscriber:
+                message = Message.model_validate_json(event.message)
+                if int(message.user_id) != int(user_id):
+                    continue
 
-                    async with self.session_factory() as session:
-                        Session = session
-                        try:
-                            prev_message = await self.messages_repo.get_prev_message(message, session)
-                            message = await self.messages_repo.add_message(message, session)
-                        finally:
-                            await session.close()
-                            session = None
+                async with self.session_factory() as session:
+                    try:
+                        prev_message = await self.messages_repo.get_prev_message(message, session)
+                        message = await self.messages_repo.add_message(message, session)
+                    finally:
+                        await session.close()
 
-                    time_diff = (message.created_at -
-                                 prev_message.created_at).total_seconds()
-                    if time_diff <= 15 and message.user_id != prev_message.user_id:
-                        are_both_online = True
-                    else:
-                        are_both_online = False
+                time_diff = (message.created_at -
+                             prev_message.created_at).total_seconds()
+                if time_diff <= 15 and message.user_id != prev_message.user_id:
+                    are_both_online = True
+                else:
+                    are_both_online = False
 
-                    light = Light(user_id=message.user_id,
-                                  chat_id=message.chat_id,
-                                  message=message,
-                                  prev_message=prev_message,
-                                  are_both_online=are_both_online,
-                                  users_layer=layer)
+                light = Light(user_id=message.user_id,
+                              chat_id=message.chat_id,
+                              message=message,
+                              prev_message=prev_message,
+                              are_both_online=are_both_online,
+                              users_layer=layer)
 
-                    async with self.session_factory() as session:
-                        Session = session
-                        try:
-                            light = await self.lights_repo.save_up(light.to_dto(), session)
-                            package = Package(message=message, lights=light)
-                        finally:
-                            await session.close()
-                            session = None
+                async with self.session_factory() as session:
+                    try:
+                        light = await self.lights_repo.save_up(light.to_dto(), session)
+                        package = Package(message=message, lights=light)
+                    finally:
+                        await session.close()
 
-                    await websocket.send_text(package.model_dump_json())
-        finally:
-            if session:
-                await session.close()
+                await websocket.send_text(package.model_dump_json())
