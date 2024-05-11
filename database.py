@@ -12,7 +12,8 @@ engine = create_async_engine(
     settings.postgres_conn_string,
     pool_size=250,
     echo=False,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    isolation_level="READ COMMITTED"
 )
 
 SessionFactory = sessionmaker(autocommit=False,
