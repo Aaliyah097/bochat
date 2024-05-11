@@ -27,17 +27,13 @@ class LightsRepo(Repository):
             await session.refresh(db_model)
         return self.dto_from_dbo(db_model, LightDTO)
 
-    async def get_prev(self, light: LightDTO, session=None) -> LightDTO | None:
+    async def get_prev(self, light: LightDTO) -> LightDTO | None:
         query = select(Lights).where(
             Lights.chat_id == light.chat_id,
             Lights.user_id == light.user_id
         ).order_by(
             Lights.created_at.desc()
         ).limit(1)
-        if session:
-            records = await session.execute(query)
-            prev_light = records.scalar()
-            return self.dto_from_dbo(prev_light, LightDTO) if prev_light else None
 
         async with self.session_factory() as session:
             records = await session.execute(query)
@@ -47,10 +43,9 @@ class LightsRepo(Repository):
     async def save_up(self, light: LightDTO) -> LightDTO | None:
         light.operation = Operation.received
         light.acked = True
+        prev_light = await self.get_prev(light)
 
         async with self.session_factory() as session:
-            prev_light = await self.get_prev(light, session)
-
             if prev_light and light.amount == 0:
                 await self.override(prev_light, light)
 
@@ -91,17 +86,13 @@ class LightsRepo(Repository):
 
             await session.commit()
 
-    async def calc_amount(self, user_id: int, chat_id: int, session=None) -> int:
+    async def calc_amount(self, user_id: int, chat_id: int) -> int:
         query = select(Lights).where(
             Lights.chat_id == int(chat_id),
             Lights.user_id == int(user_id)
         ).order_by(
             Lights.created_at.desc()
         ).limit(1)
-        if session:
-            records = await session.execute(query)
-            prev_light = records.scalar()
-            return prev_light.total if prev_light else 0
 
         async with self.session_factory() as session:
             records = await session.execute(query)
