@@ -18,14 +18,15 @@ class LightsRepo(Repository):
             return [self.dto_from_dbo(message, LightDTO) for message in messages]
 
     async def override(self, prev_light: LightDTO, light: LightDTO) -> LightDTO:
-        prev_light += light
         async with self.session_factory() as session:
             db_model = await session.get(Lights, prev_light.id)
             if db_model:
+                prev_light += light
                 db_model.total = prev_light.total
-            await session.commit()
-            await session.refresh(db_model)
-        return self.dto_from_dbo(db_model, LightDTO)
+                await session.commit()
+                await session.refresh(db_model)
+                return self.dto_from_dbo(db_model, LightDTO)
+            return prev_light
 
     async def get_prev(self, light: LightDTO) -> LightDTO | None:
         async with self.session_factory() as session:
