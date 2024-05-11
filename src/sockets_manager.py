@@ -14,7 +14,8 @@ from src.messages.repo import MessagesRepo
 from src.lights.model import Light, UsersLayer, LightDTO
 from src.lights.repo import LightsRepo
 from config import settings
-
+from sqlalchemy.orm import sessionmaker
+from database import SessionFactory
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -98,6 +99,8 @@ class WebSocketBroadcaster:
     messages_repo = MessagesRepo()
     lights_repo = LightsRepo()
 
+    session_factory: sessionmaker = SessionFactory
+
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int):
         metrics.ws_connections.inc()
 
@@ -134,8 +137,9 @@ class WebSocketBroadcaster:
                 if int(message.user_id) != int(user_id):
                     continue
 
-                prev_message = await self.messages_repo.get_prev_message(message)
-                message = await self.messages_repo.add_message(message)
+                async with self.session_factory() as session:
+                    prev_message = await self.messages_repo.get_prev_message(message, session)
+                    message = await self.messages_repo.add_message(message, session)
 
                 time_diff = (message.created_at -
                              prev_message.created_at).total_seconds()

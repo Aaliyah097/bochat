@@ -9,29 +9,27 @@ from src.repository import Repository
 
 
 class MessagesRepo(Repository):
-    async def get_prev_message(self, message: Message) -> Message | None:
-        async with self.session_factory() as session:
-            query = select(Messages).where(
-                Messages.chat_id == message.chat_id
-            ).order_by(
-                Messages.created_at.desc()
-            ).limit(1)
+    async def get_prev_message(self, message: Message, session) -> Message | None:
+        query = select(Messages).where(
+            Messages.chat_id == message.chat_id
+        ).order_by(
+            Messages.created_at.desc()
+        ).limit(1)
 
-            records = await session.execute(query)
-            message = records.scalar()
-            if not message:
-                return None
+        records = await session.execute(query)
+        message = records.scalar()
+        if not message:
+            return None
 
-            return self.dto_from_dbo(message, Message)
+        return self.dto_from_dbo(message, Message)
 
-    async def add_message(self, message: Message) -> Message:
+    async def add_message(self, message: Message, session) -> Message:
         db_model = Messages(**message.model_dump())
         db_model.created_at = datetime.datetime.now().astimezone(
             pytz.timezone('Europe/Moscow')).now()
-        async with self.session_factory() as session:
-            session.add(db_model)
-            await session.commit()
-            await session.refresh(db_model)
+        session.add(db_model)
+        await session.commit()
+        await session.refresh(db_model)
         return self.dto_from_dbo(db_model, Message)
 
     async def edit_message(self, message_id: int, new_text: str) -> Message:

@@ -11,8 +11,9 @@ Base = declarative_base()
 
 engine = create_async_engine(
     settings.postgres_conn_string,
-    pool_size=250,
-    echo=True,
+    pool_size=500,
+    max_overflow=50,
+    echo=False,
     pool_pre_ping=True,
     poolclass=AsyncAdaptedQueuePool,
     isolation_level="READ COMMITTED"
