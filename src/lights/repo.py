@@ -25,7 +25,7 @@ class LightsRepo(Repository):
                 db_model.total = prev_light.total
             await session.commit()
             await session.refresh(db_model)
-        return self.dto_from_dbo(db_model, LightDTO)
+            return self.dto_from_dbo(db_model, LightDTO)
 
     async def get_prev(self, light: LightDTO) -> LightDTO | None:
         query = select(Lights).where(

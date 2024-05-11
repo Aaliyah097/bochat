@@ -47,7 +47,7 @@ class MessagesRepo(Repository):
             query = update(Messages).where(
                 Messages.id.in_(messages_ids)).values(is_read=True)
             await session.execute(query)
-            # await session.commit()
+            await session.commit()
 
     async def list_messages(self, chat_id: int, page: int = 1, size: int = 50) -> List[Message]:
         offset = (page - 1) * size
@@ -107,7 +107,7 @@ class MessagesRepo(Repository):
                 )
             )
 
-        for record in records:
-            result[record[0]] = record[1]
+            for record in records:
+                result[record[0]] = record[1]
 
-        return result
+            return result
