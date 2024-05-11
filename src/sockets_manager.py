@@ -146,6 +146,8 @@ class WebSocketBroadcaster:
                     logger.warning("Операция отменена по таймауту клиента")
                 except InterfaceError:
                     logger.warning("Подключение уже закрыто")
+                except:
+                    pass
                 finally:
                     try:
                         await session.close()
@@ -174,6 +176,8 @@ class WebSocketBroadcaster:
                     logger.warning("Операция отменена по таймауту клиента")
                 except InterfaceError:
                     logger.warning("Подключение уже закрыто")
+                except:
+                    pass
                 finally:
                     try:
                         await session.close()
