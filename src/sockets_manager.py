@@ -151,7 +151,8 @@ class WebSocketBroadcaster:
                               are_both_online=are_both_online,
                               users_layer=layer)
 
-                light = await self.lights_repo.save_up(light.to_dto())
+                # light = await self.lights_repo.save_up(light.to_dto())
+                light = None
                 package = Package(message=message, lights=light)
 
                 await websocket.send_text(package.model_dump_json())
