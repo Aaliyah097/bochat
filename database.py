@@ -14,10 +14,8 @@ engine = create_async_engine(
     pool_size=100,
     max_overflow=50,
     echo=False,
-    pool_pre_ping=True,
     poolclass=AsyncAdaptedQueuePool,
     isolation_level="READ COMMITTED",
-    pool_timeout=10
 )
 
 SessionFactory = sessionmaker(autocommit=False,

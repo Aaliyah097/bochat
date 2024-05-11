@@ -138,16 +138,13 @@ class WebSocketBroadcaster:
                     continue
 
                 try:
-                    async with self.session_factory() as session:
-                        prev_message = await self.messages_repo.get_prev_message(message, session)
-                        message = await self.messages_repo.add_message(message, session)
+                    session = self.session_factory()
+                    prev_message = await self.messages_repo.get_prev_message(message, session)
+                    message = await self.messages_repo.add_message(message, session)
                 except asyncio.exceptions.CancelledError:
-                    logger.error("Операция отменена по таймауту клиента")
+                    logger.warning("Операция отменена по таймауту клиента")
                 finally:
-                    try:
-                        await session.close()
-                    except:
-                        pass
+                    await session.close()
 
                 time_diff = (message.created_at -
                              prev_message.created_at).total_seconds()
@@ -164,15 +161,12 @@ class WebSocketBroadcaster:
                               users_layer=layer)
 
                 try:
-                    async with self.session_factory() as session:
-                        light = await self.lights_repo.save_up(light.to_dto(), session)
-                        package = Package(message=message, lights=light)
+                    session = self.session_factory()
+                    light = await self.lights_repo.save_up(light.to_dto(), session)
+                    package = Package(message=message, lights=light)
                 except asyncio.exceptions.CancelledError:
-                    logger.error("Операция отменена по таймауту клиента")
+                    logger.warning("Операция отменена по таймауту клиента")
                 finally:
-                    try:
-                        await session.close()
-                    except:
-                        pass
+                    await session.close()
 
                 await websocket.send_text(package.model_dump_json())
