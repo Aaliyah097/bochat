@@ -10,8 +10,9 @@ Base = declarative_base()
 
 engine = create_async_engine(
     settings.postgres_conn_string,
-    pool_size=1000,
+    pool_size=500,
     echo=False,
+    pool_pre_ping=True
 )
 
 SessionFactory = sessionmaker(autocommit=False,
