@@ -1,11 +1,12 @@
 import time
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, WebSocket, Query, WebSocketDisconnect, WebSocketException, Body
+from fastapi.concurrency import run_until_first_complete
 from dependency_injector.wiring import inject, Provide
 
 from src.messages.model import Message
 from container import AppContainer, MessagesRepo
-from src.sockets_manager import WebSocketManager
+from src.sockets_manager import WebSocketManager, WebSocketBroadcaster
 from src import metrics
 
 
@@ -118,3 +119,21 @@ async def on_message_event(websocket: WebSocket,
         await socket_manager.remove_user_from_chat(chat_id, user_id)
         # событие выхода из чата
         metrics.ws_connections.dec()
+
+
+@chat_router.websocket("/v2/connect")
+async def on_message_event_v2(websocket: WebSocket,
+                              chat_id: Annotated[str, Query()],
+                              user_id: Annotated[str, Query()],
+                              layer: Annotated[int, Query()],
+                              reply_id: Annotated[int | None, Query()] = None
+                              ):
+    await websocket.accept()
+    broadcaster = WebSocketBroadcaster()
+
+    await run_until_first_complete(
+        (broadcaster.chat_ws_receiver, {
+         "websocket": websocket, "chat_id": chat_id, 'user_id': user_id, 'reply_id': reply_id}),
+        (broadcaster.chat_ws_sender, {
+         "websocket": websocket, "chat_id": chat_id, 'layer': layer}),
+    )

@@ -1,14 +1,19 @@
+import time
 import websockets.exceptions
 from pydantic import BaseModel
 from typing import NoReturn, Any
 import asyncio
 import logging
+from broadcaster import Broadcast
 from fastapi import WebSocket
+from src import metrics
 from src.pubsub_manager import RedisPubSubManager
 from src.messages.model import Message
 from src.messages.service import MessagesService
+from src.messages.repo import MessagesRepo
 from src.lights.model import Light, UsersLayer, LightDTO
 from src.lights.repo import LightsRepo
+from config import settings
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -86,3 +91,64 @@ class WebSocketManager:
                         await socket.send_text(data)
                     except websockets.exceptions.ConnectionClosedOK as e:
                         pass
+
+
+class WebSocketBroadcaster:
+    broadcast = Broadcast(settings.conn_string)
+    messages_service: MessagesService = MessagesService()
+    lights_repo: LightsRepo = LightsRepo()
+    messages_repo: MessagesRepo = MessagesRepo()
+
+    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int):
+        metrics.ws_connections.inc()
+
+        async for data in websocket.iter_text():
+            if len(data) == 0:
+                continue
+            if data == 'PING':
+                await websocket.send_text('PONG')
+                continue
+
+            start = time.time()
+
+            message = Message(
+                user_id=user_id,
+                chat_id=chat_id,
+                text=data,
+                reply_id=reply_id,
+                is_read=False,
+                is_edited=False
+            )
+
+            await self.broadcast.publish(channel=f"chat_{str(chat_id)}", message=message.model_dump_json())
+
+            metrics.ws_time_to_process.observe((time.time() - start) * 1000)
+            metrics.ws_messages.inc()
+
+        metrics.ws_connections.dec()
+
+    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int):
+        async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
+            async for event in subscriber:
+                message = Message.model_validate_json(event.message)
+                prev_message = await self.messages_repo.get_prev_message(message)
+                message = await self.messages_repo.add_message(message)
+
+                time_diff = (message.created_at -
+                             prev_message.created_at).total_seconds()
+                if time_diff <= 15 and message.user_id != prev_message.user_id:
+                    are_both_online = True
+                else:
+                    are_both_online = False
+
+                light = Light(user_id=message.user_id,
+                              chat_id=message.chat_id,
+                              message=message,
+                              prev_message=prev_message,
+                              are_both_online=are_both_online,
+                              users_layer=layer)
+
+                light = await self.lights_repo.save_up(light.to_dto())
+                package = Package(message=message, lights=light)
+
+                await websocket.send_text(package.model_dump_json())

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from src.messages import chat_router
+from src.sockets_manager import WebSocketBroadcaster
 from src.lights.actions import lights_router
 from container import AppContainer
 # from database import database
@@ -32,15 +33,17 @@ Instrumentator().instrument(app).expose(app)
 # rabbitmq_pool = RabbitMQPool()
 
 
-# @app.on_event("startup")
-# @inject
-# async def startup():
-#     await database.connect()
-# await rabbitmq_pool.connect()
+@app.on_event("startup")
+@inject
+async def startup():
+    await WebSocketBroadcaster.broadcast.connect()
+    # await database.connect()
+    # await rabbitmq_pool.connect()
 
 
-# @app.on_event("shutdown")
-# @inject
-# async def shutdown():
-#     await database.disconnect()
-# await rabbitmq_pool.close()
+@app.on_event("shutdown")
+@inject
+async def shutdown():
+    await WebSocketBroadcaster.broadcast.disconnect()
+    # await database.disconnect()
+    # await rabbitmq_pool.close()

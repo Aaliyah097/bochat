@@ -25,7 +25,7 @@ class RedisSettings(BaseSettings):
 
     @property
     def conn_string(self) -> str:
-        return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}"
+        return f"redis://{self.redis_host}:{self.redis_port}"
 
 
 class RabbitMQSettings(BaseSettings):
