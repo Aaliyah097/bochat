@@ -95,7 +95,6 @@ class WebSocketManager:
 
 class WebSocketBroadcaster:
     broadcast = Broadcast(settings.conn_string)
-    messages_service: MessagesService = MessagesService()
 
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int):
         metrics.ws_connections.inc()
