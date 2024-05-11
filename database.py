@@ -1,6 +1,7 @@
 import databases
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool.impl import AsyncAdaptedQueuePool
 from config import settings
 
 
@@ -13,6 +14,7 @@ engine = create_async_engine(
     pool_size=250,
     echo=False,
     pool_pre_ping=True,
+    poolclass=AsyncAdaptedQueuePool,
     isolation_level="READ COMMITTED"
 )
 
