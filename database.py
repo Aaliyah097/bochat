@@ -10,7 +10,7 @@ Base = declarative_base()
 
 engine = create_async_engine(
     settings.postgres_conn_string,
-    pool_size=500,
+    pool_size=250,
     echo=False,
     pool_pre_ping=True
 )

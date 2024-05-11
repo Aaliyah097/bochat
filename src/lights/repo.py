@@ -25,7 +25,6 @@ class LightsRepo(Repository):
             db_model.total = prev_light.total
         await session.commit()
         await session.refresh(db_model)
-        await session.close()
         return self.dto_from_dbo(db_model, LightDTO)
 
     async def get_prev(self, light: LightDTO, session) -> LightDTO | None:
@@ -38,7 +37,6 @@ class LightsRepo(Repository):
 
         records = await session.execute(query)
         prev_light = records.scalar()
-        await session.close()
         return self.dto_from_dbo(prev_light, LightDTO) if prev_light else None
 
     async def save_up(self, light: LightDTO) -> LightDTO | None:
