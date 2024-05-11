@@ -1,3 +1,5 @@
+from typing import Union
+import json
 import datetime
 import pytz
 from typing import List
@@ -6,10 +8,20 @@ from sqlalchemy import desc, func
 from src.messages.model import Message
 from src.messages.table import Messages
 from src.repository import Repository
+from src.pubsub_manager import RedisClient
 
 
 class MessagesRepo(Repository):
-    async def get_prev_message(self, message: Message, session) -> Message | None:
+    async def store_last_chat_message(self, chat_id: int, message: Message):
+        async with RedisClient() as client:
+            await client.set(f"last_message_{chat_id}", message.model_dump_json())
+
+    async def get_last_chat_message(self, chat_id: int) -> Union[Message, None]:
+        async with RedisClient() as client:
+            res = await client.get(f"last_message_{chat_id}")
+            return Message.model_validate_json(res.decode("utf-8")) if res else None
+
+    async def get_prev_message(self, message: Message, session) -> Union[Message, None]:
         query = select(Messages).where(
             Messages.chat_id == message.chat_id
         ).order_by(
@@ -81,10 +93,10 @@ class MessagesRepo(Repository):
         async with self.session_factory() as session:
             records = await session.execute(
                 text(
-                    f"""SELECT COUNT(id) 
-                    FROM messages 
-                    WHERE chat_id = {chat_id} 
-                    AND user_id != {user_id} 
+                    f"""SELECT COUNT(id)
+                    FROM messages
+                    WHERE chat_id = {chat_id}
+                    AND user_id != {user_id}
                     AND is_read=false"""
                 )
             )

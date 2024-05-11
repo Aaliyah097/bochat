@@ -11,6 +11,7 @@ from src.messages import chat_router
 from src.sockets_manager import WebSocketBroadcaster
 from src.lights.actions import lights_router
 from container import AppContainer
+from src.pubsub_manager import RedisClient
 # from database import database
 from config import settings
 # from src.notifications.queue_connector import RabbitMQPool
@@ -37,6 +38,7 @@ Instrumentator().instrument(app).expose(app)
 @inject
 async def startup():
     await WebSocketBroadcaster.broadcast.connect()
+    await RedisClient.connect()
     # await database.connect()
     # await rabbitmq_pool.connect()
 
@@ -45,5 +47,6 @@ async def startup():
 @inject
 async def shutdown():
     await WebSocketBroadcaster.broadcast.disconnect()
+    await RedisClient.disconnect()
     # await database.disconnect()
     # await rabbitmq_pool.close()

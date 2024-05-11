@@ -109,11 +109,15 @@ class WebSocketBroadcaster:
             if len(data) == 0:
                 continue
             if data == 'PING':
-                await websocket.send_text('PONG')
+                try:
+                    await websocket.send_text('PONG')
+                except websockets.exceptions.ConnectionClosedOK:
+                    pass
                 continue
-            await websocket.send_text("OK")
-
-            start = time.time()
+            try:
+                await websocket.send_text("OK")
+            except websockets.exceptions.ConnectionClosedOK:
+                pass
 
             message = Message(
                 user_id=user_id,
@@ -126,7 +130,6 @@ class WebSocketBroadcaster:
 
             await self.broadcast.publish(channel=f"chat_{str(chat_id)}", message=message.model_dump_json())
 
-            metrics.ws_time_to_process.observe((time.time() - start) * 1000)
             metrics.ws_messages.inc()
             metrics.ws_bytes_in.inc(amount=int(len(data)))
 
@@ -135,21 +138,26 @@ class WebSocketBroadcaster:
     async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int):
         async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
             async for event in subscriber:
+                start = time.time()
+
                 message = Message.model_validate_json(event.message)
-                if int(message.user_id) == int(user_id):
-                    continue
+
+                prev_message = await self.messages_repo.get_last_chat_message(chat_id)
 
                 try:
                     async with self.session_factory() as session:
-                        prev_message = await self.messages_repo.get_prev_message(message, session)
                         message = await self.messages_repo.add_message(message, session)
-                except asyncio.exceptions.CancelledError:
+                        if not prev_message:
+                            prev_message = message
+                        await self.messages_repo.store_last_chat_message(chat_id, message)
+                except asyncio.exceptions.CancelledError as e:
                     logger.warning("Операция отменена по таймауту клиента")
                     return
-                except InterfaceError:
-                    logger.warning("Подключение уже закрыто")
+                except InterfaceError as e:
+                    logger.error(str(e))
                     return
-                except:
+                except Exception as e:
+                    logger.error(str(e))
                     return
 
                 time_diff = (message.created_at -
@@ -172,11 +180,20 @@ class WebSocketBroadcaster:
                 except asyncio.exceptions.CancelledError:
                     logger.warning("Операция отменена по таймауту клиента")
                     return
-                except InterfaceError:
-                    logger.warning("Подключение уже закрыто")
+                except InterfaceError as e:
+                    logger.error(str(e))
                     return
-                except:
+                except Exception as e:
+                    logger.error(str(e))
                     return
 
                 package = Package(message=message, lights=light)
-                await websocket.send_text(package.model_dump_json())
+
+                if int(message.user_id) != int(user_id):
+                    try:
+                        await websocket.send_text(package.model_dump_json())
+                    except websockets.exceptions.ConnectionClosedOK:
+                        logger.warning("Клиент разорвал соединение")
+
+                metrics.ws_time_to_process.observe(
+                    (time.time() - start) * 1000)

@@ -1,11 +1,22 @@
-from typing import List
+from typing import List, Union
+import json
 from sqlalchemy.sql import select
 from src.repository import Repository
 from src.lights.table import Lights
 from src.lights.model import LightDTO, Operation
+from src.pubsub_manager import RedisClient
 
 
 class LightsRepo(Repository):
+    async def get_last_user_light(self, user_id: int, chat_id: int) -> Union[LightDTO, None]:
+        async with RedisClient() as client:
+            res = await client.get(f"last_light_{user_id}_{chat_id}")
+            return LightDTO.model_validate_json(res.decode("utf-8")) if res else None
+
+    async def store_last_user_light(self, user_id: int, chat_id: int, light: LightDTO):
+        async with RedisClient() as client:
+            await client.set(f"last_light_{user_id}_{chat_id}", light.model_dump_json())
+
     async def get_free(self, chat_id: int, user_id: int) -> List[LightDTO]:
         async with self.session_factory() as session:
             query = select(Lights).where(
@@ -22,10 +33,6 @@ class LightsRepo(Repository):
         if db_model:
             prev_light += light
             db_model.total = prev_light.total
-            await session.commit()
-            await session.refresh(db_model)
-            return self.dto_from_dbo(db_model, LightDTO)
-        return prev_light
 
     async def get_prev(self, light: LightDTO, session) -> LightDTO | None:
         query = select(Lights).where(
@@ -43,7 +50,7 @@ class LightsRepo(Repository):
         light.operation = Operation.received
         light.acked = True
 
-        prev_light = await self.get_prev(light, session)
+        prev_light = await self.get_last_user_light(light.user_id, light.chat_id)
 
         if prev_light and light.amount == 0:
             await self.override(prev_light, light, session)
@@ -59,13 +66,15 @@ class LightsRepo(Repository):
         await session.commit()
         await session.refresh(db_model)
 
+        await self.store_last_user_light(light.user_id, light.chat_id, self.dto_from_dbo(db_model, LightDTO))
+
         if light.amount != 0:
             return self.dto_from_dbo(db_model, LightDTO)
 
     async def withdrawn(self, light_id: int):
         async with self.session_factory() as session:
             light_dbo = await session.get(Lights, int(light_id))
-            prev_light = await self.get_prev(self.dto_from_dbo(light_dbo, LightDTO), session)
+            prev_light = await self.get_last_user_light(light_dbo.user_id, light_dbo.chat_id)
 
             if prev_light.total < light_dbo.amount:
                 raise Exception("Недостаточно лайтов")
