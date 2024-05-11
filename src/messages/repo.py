@@ -21,7 +21,7 @@ class MessagesRepo(Repository):
             message = records.scalar()
             if not message:
                 return None
-            await session.close()
+
             return self.dto_from_dbo(message, Message)
 
     async def add_message(self, message: Message) -> Message:
@@ -31,8 +31,8 @@ class MessagesRepo(Repository):
         async with self.session_factory() as session:
             session.add(db_model)
             await session.commit()
-            await session.close()
-            return self.dto_from_dbo(db_model, Message)
+            await session.refresh(db_model)
+        return self.dto_from_dbo(db_model, Message)
 
     async def edit_message(self, message_id: int, new_text: str) -> Message:
         async with self.session_factory() as session:
@@ -41,7 +41,7 @@ class MessagesRepo(Repository):
                 raise Exception("Сообщение не найдено")
             message.text = new_text
             await session.commit()
-            await session.close()
+            await session.refresh(message)
             return self.dto_from_dbo(message, Message)
 
     async def mark_read(self, messages_ids: list[int]) -> None:
@@ -49,7 +49,6 @@ class MessagesRepo(Repository):
             query = update(Messages).where(
                 Messages.id.in_(messages_ids)).values(is_read=True)
             await session.execute(query)
-            await session.close()
             await session.commit()
 
     async def list_messages(self, chat_id: int, page: int = 1, size: int = 50) -> List[Message]:
@@ -62,10 +61,8 @@ class MessagesRepo(Repository):
                 .offset(offset).limit(size)
             )
             records = await session.execute(query)
-            messages = records.scalars().all()
-            await session.close()
             return [self.dto_from_dbo(
-                message, Message) for message in messages]
+                message, Message) for message in records.scalars().all()]
 
     async def list_new_messages(self, chat_id: int, user_id: int, page: int | None = None, size: int | None = None) -> List[Message]:
         offset = (page - 1) * size
@@ -79,26 +76,21 @@ class MessagesRepo(Repository):
             )
 
             records = await session.execute(query)
-            messages = records.scalars().all()
-            await session.close()
             return [self.dto_from_dbo(
-                message, Message) for message in messages]
+                message, Message) for message in records.scalars().all()]
 
     async def count_new_messages_in_chat(self, chat_id: int, user_id: int) -> int:
         async with self.session_factory() as session:
             records = await session.execute(
                 text(
-                    """SELECT COUNT(id) 
+                    f"""SELECT COUNT(id) 
                     FROM messages 
-                    WHERE chat_id = :chat_id 
-                    AND user_id != :user_id 
+                    WHERE chat_id = {chat_id} 
+                    AND user_id != {user_id} 
                     AND is_read=false"""
-                ),
-                {"chat_id": chat_id, "user_id": user_id}
+                )
             )
-            count = records.scalar()
-            await session.close()
-            return count
+            return records.scalar()
 
     async def count_new_messages_by_chats(self, user_id: int) -> dict:
         result = {}
@@ -116,5 +108,5 @@ class MessagesRepo(Repository):
 
             for record in records:
                 result[record[0]] = record[1]
-            await session.close()
-            return result
+
+        return result
