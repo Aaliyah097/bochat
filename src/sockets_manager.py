@@ -15,6 +15,7 @@ from src.lights.model import Light, UsersLayer, LightDTO
 from src.lights.repo import LightsRepo
 from config import settings
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import InterfaceError
 from database import SessionFactory
 
 logging.basicConfig(level=logging.DEBUG)
@@ -143,8 +144,13 @@ class WebSocketBroadcaster:
                     message = await self.messages_repo.add_message(message, session)
                 except asyncio.exceptions.CancelledError:
                     logger.warning("Операция отменена по таймауту клиента")
+                except InterfaceError:
+                    logger.warning("Подключение уже закрыто")
                 finally:
-                    await session.close()
+                    try:
+                        await session.close()
+                    except:
+                        pass
 
                 time_diff = (message.created_at -
                              prev_message.created_at).total_seconds()
@@ -166,7 +172,12 @@ class WebSocketBroadcaster:
                     package = Package(message=message, lights=light)
                 except asyncio.exceptions.CancelledError:
                     logger.warning("Операция отменена по таймауту клиента")
+                except InterfaceError:
+                    logger.warning("Подключение уже закрыто")
                 finally:
-                    await session.close()
+                    try:
+                        await session.close()
+                    except:
+                        pass
 
                 await websocket.send_text(package.model_dump_json())
