@@ -137,13 +137,13 @@ class WebSocketBroadcaster:
                 if int(message.user_id) != int(user_id):
                     continue
 
-                try:
-                    async with self.session_factory() as session:
-                        prev_message = await self.messages_repo.get_prev_message(message, session)
-                        message = await self.messages_repo.add_message(message, session)
+                async with self.session_factory() as session:
+                    try:
+                        async with session.begin():
+                            prev_message = await self.messages_repo.get_prev_message(message, session)
+                            message = await self.messages_repo.add_message(message, session)
+                    finally:
                         await session.close()
-                except Exception as e:
-                    print(str(e))
 
                 time_diff = (message.created_at -
                              prev_message.created_at).total_seconds()
