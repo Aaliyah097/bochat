@@ -141,6 +141,8 @@ class WebSocketBroadcaster:
                     try:
                         prev_message = await self.messages_repo.get_prev_message(message, session)
                         message = await self.messages_repo.add_message(message, session)
+                    except asyncio.exceptions.CancelledError:
+                        logger.error("Операция отменена по таймауту клиента")
                     finally:
                         try:
                             await session.close()
@@ -165,6 +167,8 @@ class WebSocketBroadcaster:
                     try:
                         light = await self.lights_repo.save_up(light.to_dto(), session)
                         package = Package(message=message, lights=light)
+                    except asyncio.exceptions.CancelledError:
+                        logger.error("Операция отменена по таймауту клиента")
                     finally:
                         try:
                             await session.close()
