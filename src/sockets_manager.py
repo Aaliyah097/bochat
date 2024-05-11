@@ -142,7 +142,10 @@ class WebSocketBroadcaster:
                         prev_message = await self.messages_repo.get_prev_message(message, session)
                         message = await self.messages_repo.add_message(message, session)
                     finally:
-                        await session.close()
+                        try:
+                            await session.close()
+                        except Exception as e:
+                            logger.error(str(e))
 
                 time_diff = (message.created_at -
                              prev_message.created_at).total_seconds()
@@ -163,6 +166,9 @@ class WebSocketBroadcaster:
                         light = await self.lights_repo.save_up(light.to_dto(), session)
                         package = Package(message=message, lights=light)
                     finally:
-                        await session.close()
+                        try:
+                            await session.close()
+                        except Exception as e:
+                            logger.error(str(e))
 
                 await websocket.send_text(package.model_dump_json())
