@@ -11,11 +11,11 @@ Base = declarative_base()
 
 engine = create_async_engine(
     settings.postgres_conn_string,
-    pool_size=100,
-    max_overflow=50,
+    # pool_size=10,
+    # max_overflow=5,
     echo=False,
-    poolclass=AsyncAdaptedQueuePool,
-    isolation_level="READ COMMITTED",
+    # poolclass=AsyncAdaptedQueuePool,
+    # isolation_level="READ COMMITTED",
 )
 
 SessionFactory = sessionmaker(autocommit=False,
