@@ -96,8 +96,6 @@ class WebSocketManager:
 class WebSocketBroadcaster:
     broadcast = Broadcast(settings.conn_string)
     messages_service: MessagesService = MessagesService()
-    lights_repo: LightsRepo = LightsRepo()
-    messages_repo: MessagesRepo = MessagesRepo()
 
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int):
         metrics.ws_connections.inc()
@@ -124,18 +122,22 @@ class WebSocketBroadcaster:
 
             metrics.ws_time_to_process.observe((time.time() - start) * 1000)
             metrics.ws_messages.inc()
+            metrics.ws_bytes_in.inc(amount=int(len(data)))
 
         metrics.ws_connections.dec()
 
     async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int):
+        messages_repo = MessagesRepo()
+        lights_repo = LightsRepo()
+
         async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
             async for event in subscriber:
                 message = Message.model_validate_json(event.message)
                 if int(message.user_id) != int(user_id):
                     continue
 
-                prev_message = await self.messages_repo.get_prev_message(message)
-                message = await self.messages_repo.add_message(message)
+                prev_message = await messages_repo.get_prev_message(message)
+                message = await messages_repo.add_message(message)
 
                 time_diff = (message.created_at -
                              prev_message.created_at).total_seconds()
@@ -151,7 +153,7 @@ class WebSocketBroadcaster:
                               are_both_online=are_both_online,
                               users_layer=layer)
 
-                light = await self.lights_repo.save_up(light.to_dto())
+                light = await lights_repo.save_up(light.to_dto())
                 package = Package(message=message, lights=light)
 
                 await websocket.send_text(package.model_dump_json())

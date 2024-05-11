@@ -83,12 +83,13 @@ class MessagesRepo(Repository):
         async with self.session_factory() as session:
             records = await session.execute(
                 text(
-                    f"""SELECT COUNT(id) 
+                    """SELECT COUNT(id) 
                     FROM messages 
-                    WHERE chat_id = {chat_id} 
-                    AND user_id != {user_id} 
+                    WHERE chat_id = :chat_id 
+                    AND user_id != :user_id 
                     AND is_read=false"""
-                )
+                ),
+                {"chat_id": chat_id, "user_id": user_id}
             )
             count = records.scalar()
             return count

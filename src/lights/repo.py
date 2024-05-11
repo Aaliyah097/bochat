@@ -14,8 +14,7 @@ class LightsRepo(Repository):
                 Lights.acked == False
             )
             records = await session.execute(query)
-            messages = records.scalars()
-            return [self.dto_from_dbo(message, LightDTO) for message in messages]
+            return [self.dto_from_dbo(message, LightDTO) for message in records.scalars()]
 
     async def override(self, prev_light: LightDTO, light: LightDTO) -> LightDTO:
         prev_light += light
