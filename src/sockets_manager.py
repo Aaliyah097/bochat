@@ -111,6 +111,7 @@ class WebSocketBroadcaster:
             if data == 'PING':
                 await websocket.send_text('PONG')
                 continue
+            await websocket.send_text("OK")
 
             start = time.time()
 
@@ -128,7 +129,6 @@ class WebSocketBroadcaster:
             metrics.ws_time_to_process.observe((time.time() - start) * 1000)
             metrics.ws_messages.inc()
             metrics.ws_bytes_in.inc(amount=int(len(data)))
-            await websocket.send_text("OK")
 
         metrics.ws_connections.dec()
 

@@ -13,7 +13,7 @@ services:
       - POSTGRES_INITDB_ARGS="--max_connections=1000"
     ports:
       - "${POSTGRES_PORT:-5433}:${POSTGRES_PORT:-5433}"
-    command: ["postgres", "-p", "${POSTGRES_PORT:-5433}", "-c", "max_connections=1000", "-c", "shared_buffers=1024MB", "-N", "1000"]
+    command: ["postgres", "-p", "${POSTGRES_PORT:-5433}", "-c", "max_connections=1000", "-c", "shared_buffers=512MB", "-N", "1000"]
     networks:
       - local_network
     volumes:
