@@ -135,5 +135,5 @@ async def on_message_event_v2(websocket: WebSocket,
         (broadcaster.chat_ws_receiver, {
          "websocket": websocket, "chat_id": chat_id, 'user_id': user_id, 'reply_id': reply_id}),
         (broadcaster.chat_ws_sender, {
-         "websocket": websocket, "chat_id": chat_id, 'layer': layer}),
+         "websocket": websocket, "chat_id": chat_id, 'layer': layer, 'user_id': user_id}),
     )

@@ -127,10 +127,13 @@ class WebSocketBroadcaster:
 
         metrics.ws_connections.dec()
 
-    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int):
+    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int):
         async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
             async for event in subscriber:
                 message = Message.model_validate_json(event.message)
+                if int(message.user_id) != int(user_id):
+                    continue
+
                 prev_message = await self.messages_repo.get_prev_message(message)
                 message = await self.messages_repo.add_message(message)
 
