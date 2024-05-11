@@ -17,58 +17,55 @@ class LightsRepo(Repository):
             messages = records.scalars()
             return [self.dto_from_dbo(message, LightDTO) for message in messages]
 
-    async def override(self, prev_light: LightDTO, light: LightDTO) -> LightDTO:
-        async with self.session_factory() as session:
-            db_model = await session.get(Lights, prev_light.id)
-            if db_model:
-                prev_light += light
-                db_model.total = prev_light.total
-                await session.commit()
-                await session.refresh(db_model)
-                return self.dto_from_dbo(db_model, LightDTO)
-            return prev_light
+    async def override(self, prev_light: LightDTO, light: LightDTO, session) -> LightDTO:
+        db_model = await session.get(Lights, prev_light.id)
+        if db_model:
+            prev_light += light
+            db_model.total = prev_light.total
+            await session.commit()
+            await session.refresh(db_model)
+            return self.dto_from_dbo(db_model, LightDTO)
+        return prev_light
 
-    async def get_prev(self, light: LightDTO) -> LightDTO | None:
-        async with self.session_factory() as session:
-            query = select(Lights).where(
-                Lights.chat_id == light.chat_id,
-                Lights.user_id == light.user_id
-            ).order_by(
-                Lights.created_at.desc()
-            ).limit(1)
+    async def get_prev(self, light: LightDTO, session) -> LightDTO | None:
+        query = select(Lights).where(
+            Lights.chat_id == light.chat_id,
+            Lights.user_id == light.user_id
+        ).order_by(
+            Lights.created_at.desc()
+        ).limit(1)
 
-            records = await session.execute(query)
-            prev_light = records.scalar()
-            return self.dto_from_dbo(prev_light, LightDTO) if prev_light else None
+        records = await session.execute(query)
+        prev_light = records.scalar()
+        return self.dto_from_dbo(prev_light, LightDTO) if prev_light else None
 
-    async def save_up(self, light: LightDTO) -> LightDTO | None:
+    async def save_up(self, light: LightDTO, session) -> LightDTO | None:
         light.operation = Operation.received
         light.acked = True
 
-        prev_light = await self.get_prev(light)
+        prev_light = await self.get_prev(light, session)
 
         if prev_light and light.amount == 0:
-            await self.override(prev_light, light)
+            await self.override(prev_light, light, session)
 
         if light.amount != 0:
             light.acked = False
 
-        async with self.session_factory() as session:
-            if prev_light:
-                light += prev_light
+        if prev_light:
+            light += prev_light
 
-            db_model = Lights(**light.model_dump())
-            session.add(db_model)
-            await session.commit()
-            await session.refresh(db_model)
+        db_model = Lights(**light.model_dump())
+        session.add(db_model)
+        await session.commit()
+        await session.refresh(db_model)
 
-            if light.amount != 0:
-                return self.dto_from_dbo(db_model, LightDTO)
+        if light.amount != 0:
+            return self.dto_from_dbo(db_model, LightDTO)
 
     async def withdrawn(self, light_id: int):
         async with self.session_factory() as session:
             light_dbo = await session.get(Lights, int(light_id))
-            prev_light = await self.get_prev(self.dto_from_dbo(light_dbo, LightDTO))
+            prev_light = await self.get_prev(self.dto_from_dbo(light_dbo, LightDTO), session)
 
             if prev_light.total < light_dbo.amount:
                 raise Exception("Недостаточно лайтов")

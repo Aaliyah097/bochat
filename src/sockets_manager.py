@@ -139,9 +139,8 @@ class WebSocketBroadcaster:
 
                 async with self.session_factory() as session:
                     try:
-                        async with session.begin():
-                            prev_message = await self.messages_repo.get_prev_message(message, session)
-                            message = await self.messages_repo.add_message(message, session)
+                        prev_message = await self.messages_repo.get_prev_message(message, session)
+                        message = await self.messages_repo.add_message(message, session)
                     finally:
                         await session.close()
 
@@ -159,8 +158,11 @@ class WebSocketBroadcaster:
                               are_both_online=are_both_online,
                               users_layer=layer)
 
-                # light = await self.lights_repo.save_up(light.to_dto())
-                light = None
-                package = Package(message=message, lights=light)
+                async with self.session_factory() as session:
+                    try:
+                        light = await self.lights_repo.save_up(light.to_dto(), session)
+                        package = Package(message=message, lights=light)
+                    finally:
+                        await session.close()
 
                 await websocket.send_text(package.model_dump_json())
