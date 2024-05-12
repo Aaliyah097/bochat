@@ -47,6 +47,19 @@ services:
       - prometheus
     networks:
       - local_network
+  mongodb:
+    image: mongo
+    container_name: mongodb-chat-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-admin}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-chat}
+    networks:
+      - local_network
 # rabbitmq:
   #   image: rabbitmq:3.13-management-alpine
   #   container_name: rabbitmq-chat-db

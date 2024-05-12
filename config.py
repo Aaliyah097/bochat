@@ -53,7 +53,24 @@ class GrafanaConfig(BaseSettings):
     gf_security_admin_password: str
 
 
-class AppSettings(PostgresSettings, RedisSettings, AuthConfig, RabbitMQSettings, GrafanaConfig):
+class MongoDBConfig(BaseSettings):
+    mongo_initdb_root_username: str
+    mongo_initdb_root_password: str
+    mongo_initdb_database: str
+    mongo_initdb_host: str
+    mongo_initdb_port: int
+
+    @property
+    def mongodb_conn_string(self):
+        return f"mongodb://{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@{self.mongo_initdb_host}:{str(self.mongo_initdb_port)}/{self.mongo_initdb_database}"
+
+
+class AppSettings(PostgresSettings,
+                  RedisSettings,
+                  AuthConfig,
+                  RabbitMQSettings,
+                  GrafanaConfig,
+                  MongoDBConfig):
     model_config = SettingsConfigDict(env_file=".env")
 
 

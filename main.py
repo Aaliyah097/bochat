@@ -12,6 +12,7 @@ from src.sockets_manager import WebSocketBroadcaster
 from src.lights.actions import lights_router
 from container import AppContainer
 from src.pubsub_manager import RedisClient
+from mongo_database import MongoDBClient
 # from database import database
 from config import settings
 # from src.notifications.queue_connector import RabbitMQPool
@@ -39,6 +40,7 @@ Instrumentator().instrument(app).expose(app)
 async def startup():
     await WebSocketBroadcaster.broadcast.connect()
     await RedisClient.connect()
+    await MongoDBClient.connect()
     # await database.connect()
     # await rabbitmq_pool.connect()
 
@@ -48,5 +50,6 @@ async def startup():
 async def shutdown():
     await WebSocketBroadcaster.broadcast.disconnect()
     await RedisClient.disconnect()
+    await MongoDBClient.disconnect()
     # await database.disconnect()
     # await rabbitmq_pool.close()

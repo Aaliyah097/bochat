@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 import time
 import websockets.exceptions
 from pydantic import BaseModel
@@ -17,82 +18,12 @@ from config import settings
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import InterfaceError
 from database import SessionFactory
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.StreamHandler())
+from logger import logger
 
 
 class Package(BaseModel):
     message: Message
     lights: LightDTO | None
-
-
-class WebSocketManager:
-    def __init__(self):
-        self.chats: dict[str, dict[str, WebSocket]] = {}
-        self.messages_service: MessagesService = MessagesService()
-        self.lights_repo: LightsRepo = LightsRepo()
-        self.pubsub_clients: dict[str, Any] = {}
-
-    async def add_user_to_chat(self, chat_id: str, user_id: str, websocket: WebSocket) -> None:
-        await websocket.accept()
-
-        if chat_id not in self.chats:
-            self.chats[chat_id] = {}
-            pubsub_client = RedisPubSubManager()
-            self.pubsub_clients[chat_id] = pubsub_client
-            pubsub_subscriber = await pubsub_client.subscribe(chat_id)
-            asyncio.create_task(self._pubsub_data_reader(
-                chat_id, pubsub_subscriber))
-
-        self.chats[chat_id][user_id] = websocket
-
-    async def broadcast_to_chat(self, chat_id: str,
-                                message: Message,
-                                users_layer: UsersLayer | int = UsersLayer.first):
-        members = len(self.chats[chat_id])
-
-        prev_message = await self.messages_service.get_prev_messages(message)
-        message = await self.messages_service.store_new_message(message)
-
-        light = Light(user_id=message.user_id,
-                      chat_id=message.chat_id,
-                      message=message,
-                      prev_message=prev_message,
-                      are_both_online=members == 2,
-                      users_layer=users_layer)
-
-        light = await self.lights_repo.save_up(light.to_dto())
-        package = Package(message=message, lights=light)
-
-        await self.pubsub_clients[chat_id].publish(chat_id, package.model_dump_json())
-
-    async def remove_user_from_chat(self, chat_id: str, user_id: str) -> None:
-        try:
-            del self.chats[chat_id][user_id]
-        except (ValueError, KeyError):
-            pass
-
-        connections = self.chats.get(chat_id, None)
-        if not connections:
-            return
-
-        if len(connections) == 0:
-            del self.chats[chat_id]
-            await self.pubsub_clients[chat_id].unsubscribe(chat_id)
-
-    async def _pubsub_data_reader(self, chat_id: str, pubsub_subscriber) -> NoReturn:
-        while True:
-            message = await pubsub_subscriber.get_message(ignore_subscribe_messages=True)
-            if message is not None:
-                members = list(self.chats.get(chat_id, {}).values())
-                for socket in members:
-                    data = message['data'].decode('utf-8')
-                    try:
-                        await socket.send_text(data)
-                    except websockets.exceptions.ConnectionClosedOK as e:
-                        pass
 
 
 class WebSocketBroadcaster:
@@ -102,7 +33,22 @@ class WebSocketBroadcaster:
 
     session_factory: sessionmaker = SessionFactory
 
-    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int):
+    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int | None):
+        if not user_id or not chat_id:
+            return
+
+        try:
+            user_id = int(user_id)
+            chat_id = int(chat_id)
+        except ValueError:
+            return
+
+        if not isinstance(reply_id, int) and not reply_id is None:
+            reply_id = None
+
+        if not isinstance(websocket, WebSocket):
+            return
+
         metrics.ws_connections.inc()
 
         async for data in websocket.iter_text():
@@ -112,21 +58,26 @@ class WebSocketBroadcaster:
                 try:
                     await websocket.send_text('PONG')
                 except websockets.exceptions.ConnectionClosedOK:
-                    pass
+                    logger.warning("Клиент разорвал соединение")
+                    return
                 continue
             try:
                 await websocket.send_text("OK")
             except websockets.exceptions.ConnectionClosedOK:
-                pass
+                logger.warning("Клиент разорвал соединение")
+                return
 
-            message = Message(
-                user_id=user_id,
-                chat_id=chat_id,
-                text=data,
-                reply_id=reply_id,
-                is_read=False,
-                is_edited=False
-            )
+            try:
+                message = Message(
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    text=data,
+                    reply_id=reply_id,
+                    is_read=False,
+                    is_edited=False
+                )
+            except ValidationError:
+                continue
 
             await self.broadcast.publish(channel=f"chat_{str(chat_id)}", message=message.model_dump_json())
 
@@ -136,33 +87,50 @@ class WebSocketBroadcaster:
         metrics.ws_connections.dec()
 
     async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int):
+        if not layer:
+            layer = 1
+
+        if not chat_id or not user_id:
+            return
+
+        try:
+            chat_id = int(chat_id)
+            user_id = int(user_id)
+        except ValueError:
+            return
+
+        if not isinstance(websocket, WebSocket):
+            return
+
         async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
             async for event in subscriber:
                 start = time.time()
 
-                message = Message.model_validate_json(event.message)
+                try:
+                    message = Message.model_validate_json(event.message)
+                except ValidationError:
+                    continue
 
                 prev_message = await self.messages_repo.get_last_chat_message(chat_id)
 
                 try:
-                    async with self.session_factory() as session:
-                        message = await self.messages_repo.add_message(message, session)
-                        if not prev_message:
-                            prev_message = message
-                        await self.messages_repo.store_last_chat_message(chat_id, message)
+                    message = await self.messages_repo.add_message(message)
+                    if not prev_message:
+                        prev_message = message
+                    await self.messages_repo.store_last_chat_message(chat_id, message)
                 except asyncio.exceptions.CancelledError as e:
                     logger.warning("Операция отменена по таймауту клиента")
                     return
-                except InterfaceError as e:
-                    logger.error(str(e))
-                    return
-                except Exception as e:
-                    logger.error(str(e))
-                    return
 
-                time_diff = (message.created_at -
-                             prev_message.created_at).total_seconds()
-                if time_diff <= 15 and message.user_id != prev_message.user_id:
+                if message and message.created_at and prev_message and prev_message.created_at:
+                    time_diff = (message.created_at -
+                                 prev_message.created_at).total_seconds()
+                else:
+                    time_diff = 0
+
+                if not message or not message.user_id or not prev_message or not prev_message.user_id:
+                    are_both_online = False
+                elif time_diff <= 15 and message.user_id != prev_message.user_id:
                     are_both_online = True
                 else:
                     are_both_online = False
@@ -175,16 +143,9 @@ class WebSocketBroadcaster:
                               users_layer=layer)
 
                 try:
-                    async with self.session_factory() as session:
-                        light = await self.lights_repo.save_up(light.to_dto(), session)
+                    light = await self.lights_repo.save_up(light.to_dto())
                 except asyncio.exceptions.CancelledError:
                     logger.warning("Операция отменена по таймауту клиента")
-                    return
-                except InterfaceError as e:
-                    logger.error(str(e))
-                    return
-                except Exception as e:
-                    logger.error(str(e))
                     return
 
                 package = Package(message=message, lights=light)

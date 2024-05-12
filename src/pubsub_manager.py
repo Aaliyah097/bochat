@@ -1,11 +1,6 @@
 import redis.asyncio as aioredis
 from config import settings
-import logging
-
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.StreamHandler())
+from logger import logger
 
 
 class RedisPubSubManager:

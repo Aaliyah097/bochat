@@ -17,7 +17,7 @@ class UsersLayer(int, Enum):
 
 
 class LightDTO(BaseModel):
-    id: int | None
+    id: str | None = None
     user_id: int
     chat_id: int
     amount: int
@@ -26,6 +26,11 @@ class LightDTO(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     acked: bool = False
+
+    def __init__(self, *args, **kwargs):
+        _id = kwargs.get('_id')
+        kwargs['id'] = str(_id) if _id else None
+        super().__init__(*args, **kwargs)
 
     def __add__(self, other):
         self.total += other.total
@@ -68,16 +73,32 @@ class Light:
             self._random_lights()
 
     def _analyze_message(self) -> None:
-        words = len(self.message.text.split())
-        chars = len(self.message.text)
-        multiplier = 1 if (self.prev_message and self.prev_message.user_id != self.message.user_id) else 0
+        words = len(self.message.text.split()
+                    ) if self.message and self.message.text else 0
+        chars = len(
+            self.message.text) if self.message and self.message.text else 0
+        multiplier = 1 if (
+            self.prev_message and self.prev_message.user_id != self.message.user_id) else 0
 
-        self.total = int(words / 100 + chars / 20 + 2 * multiplier)
+        try:
+            self.total = int(words / 100 + chars / 20 + 2 * multiplier)
+        except ZeroDivisionError:
+            self.total = 0
+
         if self.are_both_online:
             self.total *= 2
 
     @staticmethod
     def roll(minutes, chance) -> int:
+        if not minutes or not chance:
+            return 0
+
+        try:
+            minutes = float(minutes)
+            chance = float(chance)
+        except ValueError:
+            return 0
+
         if minutes >= 480:
             probabilities = {
                 0: 0.1,
@@ -109,9 +130,13 @@ class Light:
         return int(likes)
 
     def _random_lights(self):
-        time_diff = round((self.message.created_at - (
-            self.prev_message.created_at if self.prev_message else datetime.now()
-        )).seconds / 60, 0)
+        if self.message and self.message.created_at and self.prev_message and self.prev_message.created_at:
+            time_diff = round((self.message.created_at - (
+                self.prev_message.created_at if self.prev_message else datetime.now()
+            )).seconds / 60, 0)
+        else:
+            time_diff = 0
+
         chance = random.random()
         if self.are_both_online:
             self.amount = self.roll(time_diff, chance)

@@ -18,6 +18,19 @@ services:
       - local_network
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
+  mongodb:
+    image: mongo
+    container_name: mongodb-chat-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-admin}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-chat}
+    networks:
+      - local_network
   redis:
     image: redis:alpine
     container_name: redis-chat-db
@@ -38,6 +51,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - mongodb
     networks:
       - local_network
   prometheus:

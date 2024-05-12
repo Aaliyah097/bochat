@@ -17,13 +17,13 @@ async def get_free_lights(chat_id: int, user_id: int,
     return await lights_repo.get_free(chat_id, user_id)
 
 
-@lights_router.get("/{light_id}", summary="Начислить пользователю лайты")
+@lights_router.get("/{light_id}", summary="Начислить пользователю лайты", response_model=None)
 @inject
 async def ack_light(light_id, lights_repo: LightsRepo = Depends(Provide[AppContainer.lights_repo])):
     await lights_repo.withdrawn(light_id)
 
 
-@lights_router.get("/{chat_id}/{user_id}", summary="Получить количество лайтов у пользователя в чате")
+@lights_router.get("/{chat_id}/{user_id}", summary="Получить количество лайтов у пользователя в чате", response_model=int)
 @inject
 async def get_users_lights(chat_id: int, user_id: int,
                            lights_repo: LightsRepo = Depends(Provide[AppContainer.lights_repo])):

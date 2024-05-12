@@ -3,3 +3,5 @@ postgres-data/
 rabbitmq/
 grafana/
 __pycache__/
+mongodb_data/
+postgresql.conf/

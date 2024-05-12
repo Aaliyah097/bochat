@@ -1,4 +1,5 @@
 from typing import Union
+from bson import ObjectId
 import json
 import datetime
 import pytz
@@ -12,111 +13,182 @@ from src.pubsub_manager import RedisClient
 
 
 class MessagesRepo(Repository):
+    # redis
     async def store_last_chat_message(self, chat_id: int, message: Message):
+        if not chat_id or not message:
+            return
+
+        if not isinstance(message, Message):
+            return
+
+        chat_id = str(chat_id)
+
         async with RedisClient() as client:
             await client.set(f"last_message_{chat_id}", message.model_dump_json())
 
+    # redis
     async def get_last_chat_message(self, chat_id: int) -> Union[Message, None]:
+        if not chat_id:
+            return
+
+        chat_id = str(chat_id)
+
         async with RedisClient() as client:
             res = await client.get(f"last_message_{chat_id}")
             return Message.model_validate_json(res.decode("utf-8")) if res else None
 
-    async def get_prev_message(self, message: Message, session) -> Union[Message, None]:
-        query = select(Messages).where(
-            Messages.chat_id == message.chat_id
-        ).order_by(
-            Messages.created_at.desc()
-        ).limit(1)
-
-        records = await session.execute(query)
-        message = records.scalar()
+    # mongo
+    async def add_message(self, message: Message) -> Union[Message, None]:
         if not message:
-            return None
+            return
 
-        return self.dto_from_dbo(message, Message)
+        if not isinstance(message, Message):
+            return
 
-    async def add_message(self, message: Message, session) -> Message:
-        db_model = Messages(**message.model_dump())
-        db_model.created_at = datetime.datetime.now().astimezone(
-            pytz.timezone('Europe/Moscow')).now()
-        session.add(db_model)
-        await session.commit()
-        await session.refresh(db_model)
-        return self.dto_from_dbo(db_model, Message)
+        message.created_at = self.get_now()
 
-    async def edit_message(self, message_id: int, new_text: str) -> Message:
-        async with self.session_factory() as session:
-            message = await session.get(Messages, message_id)
-            if not message:
-                raise Exception("Сообщение не найдено")
-            message.text = new_text
-            await session.commit()
-            await session.refresh(message)
-            return self.dto_from_dbo(message, Message)
+        async with self.mongo_client(self.messages_collection) as collection:
+            result = await collection.insert_one(message.model_dump())
+            message.id = str(result.inserted_id)
 
-    async def mark_read(self, messages_ids: list[int]) -> None:
-        async with self.session_factory() as session:
-            query = update(Messages).where(
-                Messages.id.in_(messages_ids)).values(is_read=True)
-            await session.execute(query)
-            await session.commit()
+        return message
 
-    async def list_messages(self, chat_id: int, page: int = 1, size: int = 50) -> List[Message]:
-        offset = (page - 1) * size
-        async with self.session_factory() as session:
-            query = (
-                select(Messages)
-                .filter(Messages.chat_id == chat_id)
-                .order_by(desc(Messages.created_at))
-                .offset(offset).limit(size)
-            )
-            records = await session.execute(query)
-            return [self.dto_from_dbo(
-                message, Message) for message in records.scalars().all()]
+    # mongo
+    async def edit_message(self, message_id: str, new_text: str) -> Union[Message, None]:
+        if not message_id:
+            return
 
-    async def list_new_messages(self, chat_id: int, user_id: int, page: int | None = None, size: int | None = None) -> List[Message]:
-        offset = (page - 1) * size
+        if not new_text:
+            new_text = ''
 
-        async with self.session_factory() as session:
-            query = (
-                select(Messages)
-                .filter(Messages.chat_id == chat_id, Messages.user_id != user_id, Messages.is_read == False)
-                .order_by(desc(Messages.created_at))
-                .offset(offset).limit(size)
+        message_id = str(message_id)
+
+        async with self.mongo_client(self.messages_collection) as collection:
+            await collection.update_one(
+                {"_id": ObjectId(message_id)},
+                {"$set": {'text': new_text}}
             )
 
-            records = await session.execute(query)
-            return [self.dto_from_dbo(
-                message, Message) for message in records.scalars().all()]
+    # mongo
+    async def mark_read(self, messages_ids: list[str]) -> None:
+        if not isinstance(messages_ids, list):
+            return
 
+        async with self.mongo_client(self.messages_collection) as collection:
+            records = await collection.update_many(
+                {"_id": {"$in": [ObjectId(str(m_id))
+                                 for m_id in messages_ids]}},
+                {"$set": {"is_read": True}}
+            )
+
+    # mongo
+    async def list_messages(self, chat_id: int, page: int = 1, size: int = 1) -> List[Message]:
+        if not chat_id:
+            return []
+
+        try:
+            chat_id = int(chat_id)
+        except ValueError:
+            return []
+
+        if not page:
+            page = 1
+        if not size:
+            size = 1
+
+        try:
+            page = int(page)
+        except ValueError:
+            page = 1
+
+        try:
+            size = int(size)
+        except ValueError:
+            size = 1
+
+        offset = (page - 1) * size
+
+        async with self.mongo_client(self.messages_collection) as collection:
+            cursor = collection.find({
+                'chat_id': chat_id,
+            }).sort("created_at", -1).skip(offset).limit(size)
+
+            return [Message(**doc) for doc in await cursor.to_list(length=size)]
+
+    # mongo
+    async def list_new_messages(self, chat_id: int, user_id: int, page: int = 1, size: int = 1) -> List[Message]:
+        if not chat_id or not user_id:
+            return []
+
+        try:
+            chat_id = int(chat_id)
+            user_id = int(user_id)
+        except ValueError:
+            return []
+
+        if not page:
+            page = 1
+        if not size:
+            size = 1
+
+        try:
+            page = int(page)
+        except ValueError:
+            page = 1
+
+        try:
+            size = int(size)
+        except ValueError:
+            size = 1
+
+        offset = (page - 1) * size
+
+        async with self.mongo_client(self.messages_collection) as collection:
+            cursor = collection.find({
+                'chat_id': chat_id,
+                'user_id': {"$ne": user_id},
+                'is_read': False
+            }).sort("created_at", -1).skip(offset).limit(size)
+
+            return [Message(**doc) for doc in await cursor.to_list(length=size)]
+
+    # mongo
     async def count_new_messages_in_chat(self, chat_id: int, user_id: int) -> int:
-        async with self.session_factory() as session:
-            records = await session.execute(
-                text(
-                    f"""SELECT COUNT(id)
-                    FROM messages
-                    WHERE chat_id = {chat_id}
-                    AND user_id != {user_id}
-                    AND is_read=false"""
-                )
-            )
-            return records.scalar()
+        if not chat_id or not user_id:
+            return 0
 
+        try:
+            chat_id = int(chat_id)
+            user_id = int(user_id)
+        except ValueError:
+            return 0
+
+        async with self.mongo_client(self.messages_collection) as collection:
+            return await collection.count_documents({
+                'chat_id': chat_id,
+                'user_id': {"$ne": user_id},
+                'is_read': False
+            })
+
+    # mongo
     async def count_new_messages_by_chats(self, user_id: int) -> dict:
+        if not user_id:
+            return {}
+
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            return {}
+
         result = {}
+        async with self.mongo_client(self.messages_collection) as collection:
+            pipeline = [
+                {"$match": {"user_id": {"$ne": user_id}, "is_read": False}},
+                {"$group": {"_id": "$chat_id", "count": {"$sum": 1}}}
+            ]
 
-        async with self.session_factory() as session:
-            records = await session.execute(
-                text(
-                    f"""SELECT chat_id, COUNT(id)
-                    FROM messages
-                    WHERE user_id != {user_id}
-                    AND is_read=false
-                    GROUP BY chat_id"""
-                )
-            )
-
-            for record in records:
-                result[record[0]] = record[1]
+            res = await collection.aggregate(pipeline).to_list(None)
+            for r in res:
+                result[r['_id']] = r['count']
 
         return result

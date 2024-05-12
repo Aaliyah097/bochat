@@ -9,6 +9,11 @@ class Message(BaseModel):
     text: str
     created_at: datetime = datetime.now()
     is_edited: bool = Field(default=False)
-    id: int | None = None
+    id: str | None = None
     reply_id: int | None = None
     is_read: bool = Field(default=False)
+
+    def __init__(self, *args, **kwargs):
+        _id = kwargs.get('_id')
+        kwargs['id'] = str(_id) if _id else None
+        super().__init__(*args, **kwargs)
