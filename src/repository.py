@@ -2,9 +2,7 @@ from typing import TypeVar, Generic, Any, Tuple, Type, Dict
 import datetime
 import pytz
 from pydantic import BaseModel
-from database import Base
 from sqlalchemy.orm import sessionmaker
-from database import SessionFactory
 from mongo_database import MongoDBClient
 
 
@@ -17,7 +15,6 @@ class Repository(Generic[DBO, DTO]):
     lights_collection = "lights"
 
     def __init__(self):
-        self.session_factory: sessionmaker = SessionFactory
         self.mongo_client: MongoDBClient = MongoDBClient
 
     @staticmethod
