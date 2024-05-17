@@ -111,6 +111,9 @@ class WebSocketBroadcaster:
                 except ValidationError:
                     continue
 
+                if int(message.user_id) != int(user_id):
+                    continue
+
                 prev_message = await self.messages_repo.get_last_chat_message(chat_id)
 
                 try:
@@ -150,11 +153,10 @@ class WebSocketBroadcaster:
 
                 package = Package(message=message, lights=light)
 
-                if int(message.user_id) != int(user_id):
-                    try:
-                        await websocket.send_text(package.model_dump_json())
-                    except websockets.exceptions.ConnectionClosedOK:
-                        logger.warning("Клиент разорвал соединение")
+                try:
+                    await websocket.send_text(package.model_dump_json())
+                except websockets.exceptions.ConnectionClosedOK:
+                    logger.warning("Клиент разорвал соединение")
 
                 metrics.ws_time_to_process.observe(
                     (time.time() - start) * 1000)
