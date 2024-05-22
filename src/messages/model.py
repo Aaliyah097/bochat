@@ -17,3 +17,8 @@ class Message(BaseModel):
         _id = kwargs.get('_id')
         kwargs['id'] = str(_id) if _id else None
         super().__init__(*args, **kwargs)
+
+    def serialize(self) -> dict:
+        return {
+            str(k): str(v) for k, v in vars(self).items()
+        }

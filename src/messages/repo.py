@@ -7,7 +7,6 @@ from typing import List
 from sqlalchemy.sql import select, update, text
 from sqlalchemy import desc, func
 from src.messages.model import Message
-from src.messages.table import Messages
 from src.repository import Repository
 from src.pubsub_manager import RedisClient
 

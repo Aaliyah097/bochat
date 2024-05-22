@@ -1,24 +1,5 @@
 version: '3'
 services:
-  postgres:
-    container_name: postgres-chat-db
-    image: postgres:15-alpine
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-chat}
-      - POSTGRES_PORT=${POSTGRES_PORT:-5433}
-      - POSTGRES_INITDB_ARGS="--max_connections=1000"
-    ports:
-      - "${POSTGRES_PORT:-5433}:${POSTGRES_PORT:-5433}"
-    command: ["postgres", "-p", "${POSTGRES_PORT:-5433}", "-c", "max_connections=1000", "-c", "shared_buffers=1024MB", "-N", "1000"]
-    networks:
-      - local_network
-    volumes:
-      - ./postgres-data:/var/lib/postgresql/data
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf
   redis:
     image: redis:alpine
     container_name: redis-chat-db
@@ -60,20 +41,6 @@ services:
       - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-chat}
     networks:
       - local_network
-# rabbitmq:
-  #   image: rabbitmq:3.13-management-alpine
-  #   container_name: rabbitmq-chat-db
-  #   hostname: rabbitmq
-  #   ports:
-  #     - "15672:15672"
-  #     - "5672:5672"
-  #   environment:
-  #     - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-admin}
-  #     - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-admin}
-  #     - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbit log_levels [{connection,error},{default,error}] disk_free_limit 2147483648
-  #   volumes:
-  #     - ./rabbitmq:/var/lib/rabbitmq
-
 networks:
   local_network:
     driver: bridge

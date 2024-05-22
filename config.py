@@ -2,22 +2,6 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class PostgresSettings(BaseSettings):
-    postgres_host: str
-    postgres_port: int
-    postgres_user: str
-    postgres_password: str
-    postgres_db: str
-
-    @property
-    def postgres_conn_string(self) -> str:
-        return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-
-    @property
-    def alembic_conn_string(self) -> str:
-        return f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-
-
 class RedisSettings(BaseSettings):
     redis_host: str
     redis_password: str
@@ -26,17 +10,6 @@ class RedisSettings(BaseSettings):
     @property
     def conn_string(self) -> str:
         return f"redis://{self.redis_host}:{self.redis_port}"
-
-
-class RabbitMQSettings(BaseSettings):
-    rabbitmq_default_user: str
-    rabbitmq_default_pass: str
-    rabbitmq_host: str
-    rabbitmq_port: int
-
-    @property
-    def rabbitmq_conn_string(self) -> str:
-        return f"amqp://{self.rabbitmq_default_user}:{self.rabbitmq_default_pass}@{self.rabbitmq_host}:{self.rabbitmq_port}"
 
 
 class AuthConfig(BaseSettings):
@@ -65,12 +38,18 @@ class MongoDBConfig(BaseSettings):
         return f"mongodb://{self.mongo_initdb_root_username}:{self.mongo_initdb_root_password}@{self.mongo_initdb_host}:{str(self.mongo_initdb_port)}/{self.mongo_initdb_database}"
 
 
-class AppSettings(PostgresSettings,
-                  RedisSettings,
+class FireBaseSettings(BaseSettings):
+    google_conf_path: str
+    google_jwt_ttl: int
+    google_token_url: str
+    firebase_send_address: str
+
+
+class AppSettings(RedisSettings,
                   AuthConfig,
-                  RabbitMQSettings,
                   GrafanaConfig,
-                  MongoDBConfig):
+                  MongoDBConfig,
+                  FireBaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
 

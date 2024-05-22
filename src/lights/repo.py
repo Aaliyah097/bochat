@@ -3,7 +3,6 @@ from typing import List, Union
 import json
 from sqlalchemy.sql import select
 from src.repository import Repository
-from src.lights.table import Lights
 from src.lights.model import LightDTO, Operation
 from src.pubsub_manager import RedisClient
 

@@ -8,7 +8,7 @@ import logging
 from broadcaster import Broadcast
 from fastapi import WebSocket
 from src import metrics
-from src.pubsub_manager import RedisPubSubManager
+from src.pubsub_manager import RedisClient
 from src.messages.model import Message
 from src.messages.service import MessagesService
 from src.messages.repo import MessagesRepo
@@ -17,7 +17,6 @@ from src.lights.repo import LightsRepo
 from config import settings
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import InterfaceError
-from database import SessionFactory
 from logger import logger
 
 
@@ -30,8 +29,6 @@ class WebSocketBroadcaster:
     broadcast = Broadcast(settings.conn_string)
     messages_repo = MessagesRepo()
     lights_repo = LightsRepo()
-
-    session_factory: sessionmaker = SessionFactory
 
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int | None):
         if not user_id or not chat_id:
@@ -157,6 +154,9 @@ class WebSocketBroadcaster:
                     await websocket.send_text(package.model_dump_json())
                 except websockets.exceptions.ConnectionClosedOK:
                     logger.warning("Клиент разорвал соединение")
+
+                async with RedisClient() as r:
+                    await r.xadd('notifications', message.serialize())
 
                 metrics.ws_time_to_process.observe(
                     (time.time() - start) * 1000)
