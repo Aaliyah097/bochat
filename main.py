@@ -1,6 +1,6 @@
 import asyncio
 from typing import Annotated
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks, Depends
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -35,43 +35,39 @@ container = AppContainer()
 Instrumentator().instrument(app).expose(app)
 
 
-consumer_process = None
+consumer_ = consumer.Consumer(3)
 
 
 @app.on_event("startup")
 async def startup():
-    global consumer_process
-
+    global consumer_
     await WebSocketBroadcaster.broadcast.connect()
     await RedisClient.connect()
     await MongoDBClient.connect()
 
-    consumer_process = consumer.Consumer("consumer1")
-    consumer_process.start()
+    asyncio.create_task(consumer_.main())
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    global consumer_process
+    global consumer_
 
-    if consumer_process:
-        consumer_process.exit_event.set()
-        consumer_process.join()
+    consumer_.is_active = False
 
     await WebSocketBroadcaster.broadcast.disconnect()
     await RedisClient.disconnect()
     await MongoDBClient.disconnect()
 
 
-# app.mount("/static", StaticFiles(directory="web/static"), name="static")
-# templates = Jinja2Templates(directory="web/templates")
+app.mount("/static", StaticFiles(directory="web/static"), name="static")
+templates = Jinja2Templates(directory="web/templates")
 
 
-# @app.get("/", response_class=HTMLResponse)
-# async def index(request: Request):
-#     return templates.TemplateResponse(name="index.html", context={'request': request})
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse(name="index.html", context={'request': request})
 
 
-# @app.get("/firebase-messaging-sw.js")
-# async def firebase():
-#     return FileResponse('web/static/firebase-messaging-sw.js')
+@app.get("/firebase-messaging-sw.js")
+async def firebase():
+    return FileResponse('web/static/firebase-messaging-sw.js')

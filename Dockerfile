@@ -16,4 +16,3 @@ COPY . /code
 EXPOSE 8080
 
 CMD ["sh", "-c", "hypercorn main:app -w 3 --worker-class asyncio -b 0.0.0.0:8080 --reload"]
-# CMD ["sh", "-c", "wait-for-it -t 30 postgres-chat-db:5432 -- alembic upgrade head && uvicorn main:app --host=0.0.0.0 --port=8000 --reload"]

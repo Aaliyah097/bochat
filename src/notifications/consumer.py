@@ -1,6 +1,5 @@
 import time
 import asyncio
-from multiprocessing import Process, Event
 import redis
 from httpx import AsyncClient
 from src.notifications.google_auth import get_access_token
@@ -12,29 +11,25 @@ from src.messages.model import Message
 from config import settings
 
 
-class Consumer(Process):
+class Consumer:
     GROUP_NAME = 'mygroup'
     STREAN_NAME = 'notifications'
 
-    def __init__(self, name):
+    def __init__(self, consumers_amount: int = 3):
         super().__init__()
-        self.name = name
-        self.exit_event = Event()
         self.access_token = None
         self.token_created_at: int = 0
         self.device_repo: DeviceRepo = DeviceRepo()
-
-    def run(self):
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.main())
+        self.is_active = True
+        self.consumers_amount = consumers_amount
 
     async def _update_token(self) -> None:
         if (time.time() - self.token_created_at) >= settings.google_jwt_ttl:
             self.access_token = await get_access_token()
             self.token_created_at = time.time()
 
-    async def main(self, consumers_amount: int = 3):
-        await RedisClient.connect()
+    async def main(self):
+        # await RedisClient.connect()
 
         async with RedisClient() as r:
             try:
@@ -43,11 +38,11 @@ class Consumer(Process):
                 if "BUSYGROUP Consumer Group name already exists" in str(e):
                     pass
 
-        await asyncio.gather(*[self._consume(f'consumer{i}') for i in range(1, consumers_amount + 1)])
+        await asyncio.gather(*[self._consume(f'consumer{i}') for i in range(1, self.consumers_amount + 1)])
 
     async def _consume(self, consumer_name: str):
         async with RedisClient() as r:
-            while True:
+            while self.is_active:
                 await self._update_token()
                 messages = await r.xreadgroup(self.GROUP_NAME, consumer_name, streams={self.STREAN_NAME: '>'}, count=1, noack=True)
 
