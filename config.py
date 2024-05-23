@@ -40,7 +40,7 @@ class MongoDBConfig(BaseSettings):
 
 class FireBaseSettings(BaseSettings):
     google_conf_path: str
-    google_jwt_ttl: int
+    google_jwt_ttl: int = Field(default=3600)
     google_token_url: str
     firebase_send_address: str
 

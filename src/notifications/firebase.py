@@ -1,9 +1,10 @@
+import json
 from httpx import AsyncClient
 from config import settings
 from logger import logger
 
 
-async def send_notification(device_token: str, title: str, message: str, access_token: str):
+async def send_notification(device_token: str, title: str, message: dict, access_token: str):
     async with AsyncClient() as client:
         response = await client.post(
             settings.firebase_send_address,
@@ -13,10 +14,10 @@ async def send_notification(device_token: str, title: str, message: str, access_
             },
             json={
                 'message': {
-                    'token': fcm_token,
+                    'token': device_token,
                     'notification': {
-                        'title': 'New message',
-                        'body': message_body,
+                        'title': title,
+                        'body': json.dumps(message),
                     },
                 }
             })

@@ -1,3 +1,4 @@
+import time
 from typing import Union
 import json
 import jwt
@@ -10,7 +11,9 @@ from logger import logger
 async def _create_jwt(
         conf_path: str = settings.google_conf_path,
         ttl_sec: int = settings.google_jwt_ttl):
-    config = json.load(conf_path)
+    async with aiofile.async_open(conf_path) as file:
+        config = json.loads(await file.read())
+
     now = int(time.time())
     payload = {
         'iss': config['client_email'],

@@ -30,7 +30,7 @@ class WebSocketBroadcaster:
     messages_repo = MessagesRepo()
     lights_repo = LightsRepo()
 
-    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, reply_id: int | None):
+    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, reply_id: int | None):
         if not user_id or not chat_id:
             return
 
@@ -71,7 +71,8 @@ class WebSocketBroadcaster:
                     text=data,
                     reply_id=reply_id,
                     is_read=False,
-                    is_edited=False
+                    is_edited=False,
+                    recipient_id=recipient_id
                 )
             except ValidationError:
                 continue
@@ -83,7 +84,7 @@ class WebSocketBroadcaster:
 
         metrics.ws_connections.dec()
 
-    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int):
+    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int,):
         if not layer:
             layer = 1
 
@@ -115,6 +116,10 @@ class WebSocketBroadcaster:
 
                 try:
                     message = await self.messages_repo.add_message(message)
+
+                    async with RedisClient() as r:
+                        await r.xadd('notifications', message.serialize())
+
                     if not prev_message:
                         prev_message = message
                     await self.messages_repo.store_last_chat_message(chat_id, message)
@@ -154,9 +159,6 @@ class WebSocketBroadcaster:
                     await websocket.send_text(package.model_dump_json())
                 except websockets.exceptions.ConnectionClosedOK:
                     logger.warning("Клиент разорвал соединение")
-
-                async with RedisClient() as r:
-                    await r.xadd('notifications', message.serialize())
 
                 metrics.ws_time_to_process.observe(
                     (time.time() - start) * 1000)

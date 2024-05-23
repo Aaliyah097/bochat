@@ -87,6 +87,7 @@ async def edit_message(message_id: str, new_text: Annotated[str, Body()],
 async def on_message_event_v2(websocket: WebSocket,
                               chat_id: Annotated[str, Query()],
                               user_id: Annotated[str, Query()],
+                              recipient_id: Annotated[str, Query()],
                               layer: Annotated[int, Query()],
                               reply_id: Annotated[int | None, Query()] = None
                               ):
@@ -94,7 +95,17 @@ async def on_message_event_v2(websocket: WebSocket,
 
     await run_until_first_complete(
         (broadcaster.chat_ws_receiver, {
-         "websocket": websocket, "chat_id": chat_id, 'user_id': user_id, 'reply_id': reply_id}),
+         "websocket": websocket,
+         "chat_id": chat_id,
+         'user_id': user_id,
+         'reply_id': reply_id,
+         'recipient_id': recipient_id
+         }),
         (broadcaster.chat_ws_sender, {
-         "websocket": websocket, "chat_id": chat_id, 'layer': layer, 'user_id': user_id}),
+         "websocket": websocket,
+         "chat_id": chat_id,
+         'layer': layer,
+         'user_id': user_id,
+         'recipient_id': recipient_id
+         }),
     )
