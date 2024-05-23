@@ -63,15 +63,15 @@ async def shutdown():
     await MongoDBClient.disconnect()
 
 
-app.mount("/static", StaticFiles(directory="web/static"), name="static")
-templates = Jinja2Templates(directory="web/templates")
+# app.mount("/static", StaticFiles(directory="web/static"), name="static")
+# templates = Jinja2Templates(directory="web/templates")
 
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse(name="index.html", context={'request': request})
+# @app.get("/", response_class=HTMLResponse)
+# async def index(request: Request):
+#     return templates.TemplateResponse(name="index.html", context={'request': request})
 
 
-@app.get("/firebase-messaging-sw.js")
-async def firebase():
-    return FileResponse('web/static/firebase-messaging-sw.js')
+# @app.get("/firebase-messaging-sw.js")
+# async def firebase():
+#     return FileResponse('web/static/firebase-messaging-sw.js')
