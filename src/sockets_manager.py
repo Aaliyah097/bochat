@@ -1,11 +1,11 @@
+import redis
 from pydantic import ValidationError
 import time
 import websockets.exceptions
 from pydantic import BaseModel
-from typing import NoReturn, Any
+from typing import NoReturn, Any, Union
 import asyncio
 import logging
-from broadcaster import Broadcast
 from fastapi import WebSocket
 from src import metrics
 from src.pubsub_manager import RedisClient
@@ -26,9 +26,11 @@ class Package(BaseModel):
 
 
 class WebSocketBroadcaster:
-    broadcast = Broadcast(settings.conn_string)
     messages_repo = MessagesRepo()
     lights_repo = LightsRepo()
+
+    STREAM_NAME = 'channel_%s_messages'
+    MAX_STREAM_LEN = 100
 
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, reply_id: int | None):
         if not user_id or not chat_id:
@@ -56,13 +58,7 @@ class WebSocketBroadcaster:
                     await websocket.send_text('PONG')
                 except websockets.exceptions.ConnectionClosedOK:
                     logger.warning("Клиент разорвал соединение")
-                    return
                 continue
-            try:
-                await websocket.send_text("OK")
-            except websockets.exceptions.ConnectionClosedOK:
-                logger.warning("Клиент разорвал соединение")
-                return
 
             try:
                 message = Message(
@@ -77,7 +73,17 @@ class WebSocketBroadcaster:
             except ValidationError:
                 continue
 
-            await self.broadcast.publish(channel=f"chat_{str(chat_id)}", message=message.model_dump_json())
+            serialized_message = message.serialize()
+
+            async with RedisClient() as r:
+                await r.xadd(
+                    self.STREAM_NAME % str(chat_id),
+                    serialized_message,
+                    maxlen=self.MAX_STREAM_LEN
+                )
+
+            async with RedisClient() as r:
+                await r.xadd('notifications', serialized_message)
 
             metrics.ws_messages.inc()
             metrics.ws_bytes_in.inc(amount=int(len(data)))
@@ -88,77 +94,89 @@ class WebSocketBroadcaster:
         if not layer:
             layer = 1
 
-        if not chat_id or not user_id:
+        if not chat_id or not user_id or not recipient_id:
             return
 
         try:
             chat_id = int(chat_id)
             user_id = int(user_id)
+            recipient_id = int(recipient_id)
         except ValueError:
             return
 
         if not isinstance(websocket, WebSocket):
             return
 
-        async with self.broadcast.subscribe(channel=f"chat_{str(chat_id)}") as subscriber:
-            async for event in subscriber:
-                start = time.time()
-
-                try:
-                    message = Message.model_validate_json(event.message)
-                except ValidationError:
+        async with RedisClient() as r:
+            while websocket.client_state != 2:  # 2=disconnected
+                events = await r.xread({self.STREAM_NAME % str(chat_id): '0'})
+                if not events:
                     continue
 
-                if int(message.user_id) != int(user_id):
-                    continue
+                for event in events:
+                    stream, messages = event
+                    for message_id, message_data in messages:
+                        message = Message.deserialize(message_data)
+                        if int(user_id) == int(message.user_id):
+                            continue
 
-                prev_message = await self.messages_repo.get_last_chat_message(chat_id)
+                        start = time.time()
+                        try:
+                            message = await self.messages_repo.add_message(
+                                message
+                            )
+                        except asyncio.exceptions.CancelledError:
+                            break
 
-                try:
-                    message = await self.messages_repo.add_message(message)
+                        try:
+                            package = await self.handle_message(message, layer)
+                        except asyncio.exceptions.CancelledError:
+                            package = Package(
+                                message=message,
+                                light=None
+                            )
 
-                    async with RedisClient() as r:
-                        await r.xadd('notifications', message.serialize())
+                        await r.xdel(
+                            self.STREAM_NAME % str(chat_id),
+                            message_id)
 
-                    if not prev_message:
-                        prev_message = message
-                    await self.messages_repo.store_last_chat_message(chat_id, message)
-                except asyncio.exceptions.CancelledError as e:
-                    logger.warning("Операция отменена по таймауту клиента")
-                    return
+                        try:
+                            await websocket.send_text(message.model_dump_json())
+                        except websockets.exceptions.ConnectionClosedOK:
+                            logger.warning("Клиент разорвал соединение")
 
-                if message and message.created_at and prev_message and prev_message.created_at:
-                    time_diff = (message.created_at -
-                                 prev_message.created_at).total_seconds()
-                else:
-                    time_diff = 0
+                        metrics.ws_time_to_process.observe(
+                            (time.time() - start) * 1000)
 
-                if not message or not message.user_id or not prev_message or not prev_message.user_id:
-                    are_both_online = False
-                elif time_diff <= 15 and message.user_id != prev_message.user_id:
-                    are_both_online = True
-                else:
-                    are_both_online = False
+    async def handle_message(self, message: Message, layer: int) -> Package:
+        prev_message = await self.messages_repo.get_last_chat_message(message.chat_id)
 
-                light = Light(user_id=message.user_id,
-                              chat_id=message.chat_id,
-                              message=message,
-                              prev_message=prev_message,
-                              are_both_online=are_both_online,
-                              users_layer=layer)
+        if not prev_message:
+            prev_message = message
+        await self.messages_repo.store_last_chat_message(message.chat_id, message)
 
-                try:
-                    light = await self.lights_repo.save_up(light.to_dto())
-                except asyncio.exceptions.CancelledError:
-                    logger.warning("Операция отменена по таймауту клиента")
-                    return
+        if message and message.created_at and prev_message and prev_message.created_at:
+            time_diff = (message.created_at -
+                         prev_message.created_at).total_seconds()
+        else:
+            time_diff = 0
 
-                package = Package(message=message, lights=light)
+        if not message or not message.user_id or not prev_message or not prev_message.user_id:
+            are_both_online = False
+        elif time_diff <= 15 and message.user_id != prev_message.user_id:
+            are_both_online = True
+        else:
+            are_both_online = False
 
-                try:
-                    await websocket.send_text(package.model_dump_json())
-                except websockets.exceptions.ConnectionClosedOK:
-                    logger.warning("Клиент разорвал соединение")
+        light = Light(user_id=message.user_id,
+                      chat_id=message.chat_id,
+                      message=message,
+                      prev_message=prev_message,
+                      are_both_online=are_both_online,
+                      users_layer=layer)
 
-                metrics.ws_time_to_process.observe(
-                    (time.time() - start) * 1000)
+        light = await self.lights_repo.save_up(light.to_dto())
+
+        package = Package(message=message, lights=light)
+
+        return package

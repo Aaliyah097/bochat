@@ -12,6 +12,9 @@ from src.pubsub_manager import RedisClient
 
 
 class MessagesRepo(Repository):
+    async def session(self):
+        pass
+
     # redis
     async def store_last_chat_message(self, chat_id: int, message: Message):
         if not chat_id or not message:

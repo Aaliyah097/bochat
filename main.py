@@ -41,7 +41,6 @@ consumer_ = consumer.Consumer(3)
 @app.on_event("startup")
 async def startup():
     global consumer_
-    await WebSocketBroadcaster.broadcast.connect()
     await RedisClient.connect()
     await MongoDBClient.connect()
 
@@ -54,7 +53,6 @@ async def shutdown():
 
     consumer_.is_active = False
 
-    await WebSocketBroadcaster.broadcast.disconnect()
     await RedisClient.disconnect()
     await MongoDBClient.disconnect()
 
