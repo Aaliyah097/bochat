@@ -56,8 +56,15 @@ class Consumer:
                     for device in user_devices:
                         await send_notification(
                             device.token,
-                            title=f'Новое уведомление от {message.user_id}',
-                            message=message.serialize(),
+                            title=f'Новое сообщение',
+                            text=message.text,
+                            data={
+                                'user_id': str(message.user_id),
+                                'chat_id': str(message.chat_id),
+                                'created_at': str(message.created_at),
+                                'id': str(message.id),
+                                'recipient_id': str(message.recipient_id)
+                            },
                             access_token=self.access_token
                         )
 

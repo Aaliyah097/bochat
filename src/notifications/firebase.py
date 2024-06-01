@@ -4,7 +4,11 @@ from config import settings
 from logger import logger
 
 
-async def send_notification(device_token: str, title: str, message: dict, access_token: str):
+async def send_notification(device_token: str, title: str, text: str, data: dict[str, str], access_token: str):
+    if not data:
+        data = {}
+    text, title = str(text), title
+
     async with AsyncClient() as client:
         response = await client.post(
             settings.firebase_send_address,
@@ -17,8 +21,9 @@ async def send_notification(device_token: str, title: str, message: dict, access
                     'token': device_token,
                     'notification': {
                         'title': title,
-                        'body': json.dumps(message),
+                        'body': text,
                     },
+                    'data': data
                 }
             })
         if response.status_code != 200:
