@@ -1,6 +1,6 @@
 import redis.asyncio as aioredis
 from config import settings
-from logger import logger
+from monitor import Monitor
 
 
 class RedisPubSubManager:
@@ -33,12 +33,12 @@ class RedisClient:
     @classmethod
     async def connect(cls):
         cls.redis_connection = aioredis.Redis(connection_pool=cls.pool)
-        logger.info("Подключение к Редис открыто")
+        await Monitor.log("Подключение к Редис открыто")
 
     @classmethod
     async def disconnect(cls):
         await cls.redis_connection.close()
-        logger.info("Подключение к Редис закрыто")
+        await Monitor.log("Подключение к Редис закрыто")
 
     async def __aenter__(self) -> 'Redis':
         return self.redis_connection

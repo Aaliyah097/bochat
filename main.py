@@ -16,6 +16,7 @@ from container import AppContainer
 from src.pubsub_manager import RedisClient
 from mongo_database import MongoDBClient
 from config import settings
+from monitor import Monitor
 
 
 app = FastAPI()
@@ -45,6 +46,7 @@ async def startup():
     await MongoDBClient.connect()
 
     asyncio.create_task(consumer_.main())
+    asyncio.create_task(Monitor.consume())
 
 
 @app.on_event("shutdown")
@@ -55,6 +57,7 @@ async def shutdown():
 
     await RedisClient.disconnect()
     await MongoDBClient.disconnect()
+    await Monitor.stop()
 
 
 # app.mount("/static", StaticFiles(directory="web/static"), name="static")

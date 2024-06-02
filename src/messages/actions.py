@@ -8,6 +8,7 @@ from src.messages.model import Message
 from container import AppContainer, MessagesRepo
 from src.sockets_manager import WebSocketBroadcaster
 from src import metrics
+from monitor import Monitor
 
 
 chat_router = APIRouter(prefix="/messages", tags=["messages"])
@@ -91,6 +92,7 @@ async def on_message_event_v2(websocket: WebSocket,
                               layer: Annotated[int, Query()],
                               reply_id: Annotated[int | None, Query()] = None
                               ):
+    await Monitor.log("Сокет открыт", chat_id, user_id)
     await websocket.accept()
 
     await run_until_first_complete(

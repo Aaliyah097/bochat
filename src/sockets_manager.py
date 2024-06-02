@@ -17,7 +17,7 @@ from src.lights.repo import LightsRepo
 from config import settings
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import InterfaceError
-from logger import logger
+from monitor import Monitor
 
 
 class Package(BaseModel):
@@ -57,7 +57,7 @@ class WebSocketBroadcaster:
                 try:
                     await websocket.send_text('PONG')
                 except websockets.exceptions.ConnectionClosedOK:
-                    logger.warning("Клиент разорвал соединение")
+                    await Monitor.log("Клиент разорвал соединение")
                 continue
 
             try:
@@ -81,9 +81,11 @@ class WebSocketBroadcaster:
                     serialized_message,
                     maxlen=self.MAX_STREAM_LEN
                 )
+            await Monitor.log("Сообщение добавлено в очередь", chat_id, user_id)
 
             async with RedisClient() as r:
                 await r.xadd('notifications', serialized_message)
+            await Monitor.log("Уведомление добавлено в очередь", chat_id, user_id)
 
             metrics.ws_messages.inc()
             metrics.ws_bytes_in.inc(amount=int(len(data)))
@@ -125,7 +127,13 @@ class WebSocketBroadcaster:
                             message = await self.messages_repo.add_message(
                                 message
                             )
+                            await Monitor.log("Сообщение сохранено в БД", chat_id, user_id)
+                            await r.xdel(
+                                self.STREAM_NAME % str(chat_id),
+                                message_id)
+                            await Monitor.log("Сообщение удалено из очереди", chat_id, user_id)
                         except asyncio.exceptions.CancelledError:
+                            await Monitor.log("Задача отменена во время обработки сообщения")
                             break
 
                         try:
@@ -135,15 +143,14 @@ class WebSocketBroadcaster:
                                 message=message,
                                 light=None
                             )
-
-                        await r.xdel(
-                            self.STREAM_NAME % str(chat_id),
-                            message_id)
+                        await Monitor.log("Сформирован пакет для отправки по вебсокету", chat_id, user_id)
 
                         try:
                             await websocket.send_text(message.model_dump_json())
                         except websockets.exceptions.ConnectionClosedOK:
-                            logger.warning("Клиент разорвал соединение")
+                            await Monitor.log(
+                                "Клиент разорвал соединение")
+                        await Monitor.log("Сообщение отправлено по вебсокету", chat_id, user_id)
 
                         metrics.ws_time_to_process.observe(
                             (time.time() - start) * 1000)

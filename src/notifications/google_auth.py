@@ -5,7 +5,7 @@ import jwt
 from httpx import AsyncClient
 import aiofile
 from config import settings
-from logger import logger
+from monitor import Monitor
 
 
 async def _create_jwt(
@@ -43,6 +43,6 @@ async def get_access_token() -> Union[str, None]:
         )
 
     if response.status_code != 200:
-        logger.error(response.text)
+        await Monitor.log(response.text)
         return
     return response.json().get("access_token")

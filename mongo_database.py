@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from config import settings
-from logger import logger
+from monitor import Monitor
 import asyncio
 
 
@@ -24,11 +24,11 @@ class MongoDBClient:
         async with cls.lock:
             if not cls.client:
                 cls.client = AsyncIOMotorClient(settings.mongodb_conn_string)
-            logger.info("Подключение к Монге открыто")
+            await Monitor.log("Подключение к Монге открыто")
 
     @classmethod
     async def disconnect(cls):
         async with cls.lock:
             if cls.client:
                 cls.client.close()
-            logger.info("Подключение к Монге закрыто")
+            await Monitor.log("Подключение к Монге закрыто")
