@@ -33,4 +33,4 @@ async def send_notification(device_token: str, title: str, text: str, data: dict
             return
         if response.status_code != 200:
             await Monitor.log(response.text)
-        Monitor.log("Уведомление отправлено на устройство")
+        await Monitor.log("Уведомление отправлено на устройство")
