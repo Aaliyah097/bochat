@@ -45,6 +45,13 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
     networks:
       - local_network
+  loki:
+    container_name: loki
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    networks:
+      - local_network
   grafana:
     image: grafana/grafana
     ports:
