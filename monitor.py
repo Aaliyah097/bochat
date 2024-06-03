@@ -1,7 +1,12 @@
+import httpx
 import asyncio
 import aiofiles
 import json
 import time
+from multiprocessing import Queue
+from logging_loki import LokiQueueHandler
+import logging
+from config import settings
 
 
 class Monitor:
@@ -27,6 +32,40 @@ class Monitor:
                     break
 
     @classmethod
+    async def _send_loki(cls):
+        async with httpx.AsyncClient() as client:
+            while True:
+                try:
+                    item = cls.queue.get_nowait()
+                    if not item or item is None:
+                        break
+                    try:
+                        response = await client.post(
+                            headers={
+                                'Content-Type': 'application/json',
+                            },
+                            timeout=1,
+                            url=settings.loki_endpoint, data=json.dumps({
+                                'streams': [
+                                    {
+                                        "labels": '{job="varlogs"}',
+                                        'entries': [
+                                            {
+                                                'ts': "2024-06-02T21:01:59.319897091Z",
+                                                'line': '[WARN] ' + 'qwe'
+                                            }
+                                        ]
+                                    }
+                                ]
+                            })
+                        )
+                    except:
+                        break
+                    print(response.text, response.status_code)
+                except asyncio.QueueEmpty:
+                    break
+
+    @classmethod
     async def log(cls, msg: str, chat_id: int | None = None, user_id: int | None = None, unknown: bool = False) -> None:
         payload = ";".join([
             f'{"INFO" if not unknown else "ERROR"}',
@@ -42,5 +81,5 @@ class Monitor:
     async def consume(cls):
         await cls.log("Монитор запущен")
         while cls.is_active:
-            await cls._write()
+            await cls._send_loki()
             await asyncio.sleep(1)

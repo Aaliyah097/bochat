@@ -16,6 +16,12 @@ services:
       - ./prometheus-dev.yml:/etc/prometheus/prometheus.yml
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    networks:
+      - local_network
   grafana:
     image: grafana/grafana
     ports:
@@ -25,6 +31,7 @@ services:
     volumes:
       - ./grafana:/var/lib/grafana
     depends_on:
+      - loki
       - prometheus
     networks:
       - local_network

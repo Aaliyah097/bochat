@@ -45,11 +45,21 @@ class FireBaseSettings(BaseSettings):
     firebase_send_address: str
 
 
+class LokiSettings(BaseSettings):
+    loki_host: str
+    loki_port: int
+
+    @property
+    def loki_endpoint(self):
+        return f"http://{self.loki_host}:{str(self.loki_port)}/loki/api/v1/push"
+
+
 class AppSettings(RedisSettings,
                   AuthConfig,
                   GrafanaConfig,
                   MongoDBConfig,
-                  FireBaseSettings):
+                  FireBaseSettings,
+                  LokiSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
 

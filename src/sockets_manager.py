@@ -31,6 +31,15 @@ class WebSocketBroadcaster:
 
     STREAM_NAME = 'channel_%s_messages'
     MAX_STREAM_LEN = 100
+    GROUP_NAME = 'channel_%s_group'
+
+    async def _create_group(self, chat_id: int, user_id):
+        async with RedisClient() as r:
+            try:
+                await r.xgroup_create(self.STREAM_NAME % str(chat_id), self.GROUP_NAME % str(chat_id), id='$', mkstream=True)
+            except redis.exceptions.ResponseError as e:
+                if "BUSYGROUP Consumer Group name already exists" in str(e):
+                    pass
 
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, reply_id: int | None):
         if not user_id or not chat_id:
@@ -48,6 +57,7 @@ class WebSocketBroadcaster:
         if not isinstance(websocket, WebSocket):
             return
 
+        await self._create_group(chat_id, user_id)
         metrics.ws_connections.inc()
 
         async for data in websocket.iter_text():
@@ -109,9 +119,12 @@ class WebSocketBroadcaster:
         if not isinstance(websocket, WebSocket):
             return
 
+        group_name = self.GROUP_NAME % str(chat_id)
+        stream_name = self.STREAM_NAME % str(chat_id)
         async with RedisClient() as r:
             while websocket.client_state != 2:  # 2=disconnected
-                events = await r.xread({self.STREAM_NAME % str(chat_id): '0'})
+                events = await r.xreadgroup(group_name, str(user_id), streams={stream_name: '>'})
+                # events = await r.xread({self.STREAM_NAME % str(chat_id): '0'})
                 if not events:
                     continue
 
@@ -119,8 +132,8 @@ class WebSocketBroadcaster:
                     stream, messages = event
                     for message_id, message_data in messages:
                         message = Message.deserialize(message_data)
-                        if int(user_id) == int(message.user_id):
-                            continue
+                        # if int(user_id) == int(message.user_id):
+                        #     continue
 
                         start = time.time()
                         try:
