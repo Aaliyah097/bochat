@@ -17,6 +17,7 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
   loki:
+    container_name: loki
     image: grafana/loki:latest
     ports:
       - "3100:3100"
