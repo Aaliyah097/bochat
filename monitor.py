@@ -43,27 +43,32 @@ class Monitor:
         if not logs:
             return
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                headers={
-                    'Content-Type': 'application/json',
-                },
-                timeout=1,
-                url=settings.loki_endpoint, data=json.dumps({
-                    "streams":
-                    [
-                        {
-                            "stream": {
-                                "chat": "events"
-                            },
-                            "values": [
-                                [str(int(datetime.datetime.now().timestamp() * 1e9)),
-                                 str(item)] for item in logs
-                            ]
-                        }
-                    ]
-                })
-            )
-            print(response.status_code, response.text)
+            try:
+                response = await client.post(
+                    headers={
+                        'Content-Type': 'application/json',
+                    },
+                    timeout=1,
+                    url=settings.loki_endpoint, data=json.dumps({
+                        "streams":
+                        [
+                            {
+                                "stream": {
+                                    "chat": "events"
+                                },
+                                "values": [
+                                    [str(int(datetime.datetime.now().timestamp() * 1e9)),
+                                     str(item)] for item in logs
+                                ]
+                            }
+                        ]
+                    })
+                )
+                if response.status_code != 204:
+                    print(response.text)
+            except (httpx.ConnectTimeout, httpx.ReadTimeout):
+                print("Loki не отвечает")
+                await asyncio.sleep(5)
 
     @classmethod
     async def log(cls, msg: str, chat_id: int | None = None, user_id: int | None = None, unknown: bool = False) -> None:
