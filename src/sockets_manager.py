@@ -42,7 +42,7 @@ class WebSocketBroadcaster:
                 if "BUSYGROUP Consumer Group name already exists" in str(e):
                     pass
 
-    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, reply_id: int | None):
+    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, layer: int, reply_id: int | None):
         if not user_id or not chat_id:
             return
 
@@ -102,6 +102,7 @@ class WebSocketBroadcaster:
             metrics.ws_bytes_in.inc(amount=int(len(data)))
 
         metrics.ws_connections.dec()
+        await self.process_queue(websocket, chat_id, layer, user_id, recipient_id)
 
     async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int):
         if not layer:
@@ -120,54 +121,57 @@ class WebSocketBroadcaster:
         if not isinstance(websocket, WebSocket):
             return
 
+        while True:
+            await self.process_queue(websocket, chat_id, layer, user_id, recipient_id)
+
+    async def process_queue(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int):
         stream_name = self.STREAM_NAME % str(chat_id)
         group_name = self.GROUP_NAME % (str(chat_id), str(user_id))
         async with RedisClient() as r:
-            while True:
-                events = await r.xreadgroup(group_name, str(user_id), streams={stream_name: '>'})
-                # events = await r.xread({self.STREAM_NAME % str(chat_id): '0'})
-                if not events:
-                    continue
+            events = await r.xreadgroup(group_name, str(user_id), streams={stream_name: '>'})
+            # events = await r.xread({self.STREAM_NAME % str(chat_id): '0'})
+            if not events:
+                return
 
-                for event in events:
-                    stream, messages = event
-                    for message_id, message_data in messages:
-                        message = Message.deserialize(message_data)
-                        start = time.time()
-                        try:
-                            if int(message.user_id) == int(user_id):
-                                message = await self.messages_repo.add_message(
-                                    message
-                                )
-                            await Monitor.log("Сообщение сохранено в БД", chat_id, user_id)
-                            await r.xack(stream_name, group_name, message_id)
-                            # await r.xdel(
-                            #     self.STREAM_NAME % str(chat_id),
-                            #     message_id)
-                            await Monitor.log("Сообщение удалено из очереди", chat_id, user_id)
-                        except asyncio.exceptions.CancelledError:
-                            await Monitor.log("Задача отменена во время обработки сообщения")
-                            break
-
-                        try:
-                            package = await self.handle_message(message, layer)
-                        except asyncio.exceptions.CancelledError:
-                            package = Package(
-                                message=message,
-                                light=None
+            for event in events:
+                stream, messages = event
+                for message_id, message_data in messages:
+                    message = Message.deserialize(message_data)
+                    start = time.time()
+                    try:
+                        if int(message.user_id) == int(user_id):
+                            message = await self.messages_repo.add_message(
+                                message
                             )
-                        await Monitor.log("Сформирован пакет для отправки по вебсокету", chat_id, user_id)
+                        await Monitor.log("Сообщение сохранено в БД", chat_id, user_id)
+                        await r.xack(stream_name, group_name, message_id)
+                        # await r.xdel(
+                        #     self.STREAM_NAME % str(chat_id),
+                        #     message_id)
+                        await Monitor.log("Сообщение удалено из очереди", chat_id, user_id)
+                    except asyncio.exceptions.CancelledError:
+                        await Monitor.log("Задача отменена во время обработки сообщения")
+                        break
 
-                        if int(message.user_id) != int(user_id):
-                            try:
-                                await websocket.send_text(message.model_dump_json())
-                            except websockets.exceptions.ConnectionClosedOK:
-                                await Monitor.log(
-                                    "Клиент разорвал соединение")
-                        await Monitor.log("Сообщение отправлено по вебсокету", chat_id, user_id)
+                    try:
+                        package = await self.handle_message(message, layer)
+                    except asyncio.exceptions.CancelledError:
+                        package = Package(
+                            message=message,
+                            light=None
+                        )
+                    await Monitor.log("Сформирован пакет для отправки по вебсокету", chat_id, user_id)
 
-                        metrics.ws_time_to_process.observe(
-                            (time.time() - start) * 1000)
+                    if int(message.user_id) != int(user_id):
+                        try:
+                            await websocket.send_text(message.model_dump_json())
+                        except websockets.exceptions.ConnectionClosedOK:
+                            await Monitor.log(
+                                "Клиент разорвал соединение")
+                    await Monitor.log("Сообщение отправлено по вебсокету", chat_id, user_id)
+
+                    metrics.ws_time_to_process.observe(
+                        (time.time() - start) * 1000)
 
     async def handle_message(self, message: Message, layer: int) -> Package:
         prev_message = await self.messages_repo.get_last_chat_message(message.chat_id)

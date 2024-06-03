@@ -100,6 +100,7 @@ async def on_message_event_v2(websocket: WebSocket,
             "websocket": websocket,
             "chat_id": chat_id,
             'user_id': user_id,
+            'layer': layer,
             'reply_id': reply_id,
             'recipient_id': recipient_id
         }),
