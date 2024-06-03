@@ -1,3 +1,4 @@
+from collections import defaultdict
 import redis
 from pydantic import ValidationError
 import time
@@ -31,12 +32,12 @@ class WebSocketBroadcaster:
 
     STREAM_NAME = 'channel_%s_messages'
     MAX_STREAM_LEN = 100
-    GROUP_NAME = 'channel_%s_group'
+    GROUP_NAME = 'channel_%s_user_%s_group'
 
     async def _create_group(self, chat_id: int, user_id):
         async with RedisClient() as r:
             try:
-                await r.xgroup_create(self.STREAM_NAME % str(chat_id), self.GROUP_NAME % str(chat_id), id='$', mkstream=True)
+                await r.xgroup_create(self.STREAM_NAME % str(chat_id), self.GROUP_NAME % (str(chat_id), str(user_id)), id='$', mkstream=True)
             except redis.exceptions.ResponseError as e:
                 if "BUSYGROUP Consumer Group name already exists" in str(e):
                     pass
@@ -102,7 +103,7 @@ class WebSocketBroadcaster:
 
         metrics.ws_connections.dec()
 
-    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int,):
+    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int):
         if not layer:
             layer = 1
 
@@ -119,10 +120,10 @@ class WebSocketBroadcaster:
         if not isinstance(websocket, WebSocket):
             return
 
-        group_name = self.GROUP_NAME % str(chat_id)
         stream_name = self.STREAM_NAME % str(chat_id)
+        group_name = self.GROUP_NAME % (str(chat_id), str(user_id))
         async with RedisClient() as r:
-            while websocket.client_state != 2:  # 2=disconnected
+            while True:
                 events = await r.xreadgroup(group_name, str(user_id), streams={stream_name: '>'})
                 # events = await r.xread({self.STREAM_NAME % str(chat_id): '0'})
                 if not events:
@@ -132,18 +133,17 @@ class WebSocketBroadcaster:
                     stream, messages = event
                     for message_id, message_data in messages:
                         message = Message.deserialize(message_data)
-                        # if int(user_id) == int(message.user_id):
-                        #     continue
-
                         start = time.time()
                         try:
-                            message = await self.messages_repo.add_message(
-                                message
-                            )
+                            if int(message.user_id) == int(user_id):
+                                message = await self.messages_repo.add_message(
+                                    message
+                                )
                             await Monitor.log("Сообщение сохранено в БД", chat_id, user_id)
-                            await r.xdel(
-                                self.STREAM_NAME % str(chat_id),
-                                message_id)
+                            await r.xack(stream_name, group_name, message_id)
+                            # await r.xdel(
+                            #     self.STREAM_NAME % str(chat_id),
+                            #     message_id)
                             await Monitor.log("Сообщение удалено из очереди", chat_id, user_id)
                         except asyncio.exceptions.CancelledError:
                             await Monitor.log("Задача отменена во время обработки сообщения")
@@ -158,11 +158,12 @@ class WebSocketBroadcaster:
                             )
                         await Monitor.log("Сформирован пакет для отправки по вебсокету", chat_id, user_id)
 
-                        try:
-                            await websocket.send_text(message.model_dump_json())
-                        except websockets.exceptions.ConnectionClosedOK:
-                            await Monitor.log(
-                                "Клиент разорвал соединение")
+                        if int(message.user_id) != int(user_id):
+                            try:
+                                await websocket.send_text(message.model_dump_json())
+                            except websockets.exceptions.ConnectionClosedOK:
+                                await Monitor.log(
+                                    "Клиент разорвал соединение")
                         await Monitor.log("Сообщение отправлено по вебсокету", chat_id, user_id)
 
                         metrics.ws_time_to_process.observe(

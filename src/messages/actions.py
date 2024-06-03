@@ -92,22 +92,23 @@ async def on_message_event_v2(websocket: WebSocket,
                               layer: Annotated[int, Query()],
                               reply_id: Annotated[int | None, Query()] = None
                               ):
-    await Monitor.log("Сокет открыт", chat_id, user_id)
+    await Monitor.log("Пользователь вошел в чат", chat_id, user_id)
     await websocket.accept()
 
     await run_until_first_complete(
         (broadcaster.chat_ws_receiver, {
-         "websocket": websocket,
-         "chat_id": chat_id,
-         'user_id': user_id,
-         'reply_id': reply_id,
-         'recipient_id': recipient_id
-         }),
+            "websocket": websocket,
+            "chat_id": chat_id,
+            'user_id': user_id,
+            'reply_id': reply_id,
+            'recipient_id': recipient_id
+        }),
         (broadcaster.chat_ws_sender, {
-         "websocket": websocket,
-         "chat_id": chat_id,
-         'layer': layer,
-         'user_id': user_id,
-         'recipient_id': recipient_id
-         }),
+            "websocket": websocket,
+            "chat_id": chat_id,
+            'layer': layer,
+            'user_id': user_id,
+            'recipient_id': recipient_id
+        }),
     )
+    await Monitor.log("Пользователь вышел из чата", chat_id, user_id)
