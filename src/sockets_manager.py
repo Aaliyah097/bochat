@@ -162,12 +162,12 @@ class WebSocketBroadcaster:
                         )
                     await Monitor.log("Сформирован пакет для отправки по вебсокету", chat_id, user_id)
 
-                    if int(message.user_id) != int(user_id):
-                        try:
-                            await websocket.send_text(message.model_dump_json())
-                        except websockets.exceptions.ConnectionClosedOK:
-                            await Monitor.log(
-                                "Клиент разорвал соединение")
+                    # if int(message.user_id) != int(user_id):
+                    try:
+                        await websocket.send_text(message.model_dump_json())
+                    except websockets.exceptions.ConnectionClosedOK:
+                        await Monitor.log(
+                            "Клиент разорвал соединение")
                     await Monitor.log("Сообщение отправлено по вебсокету", chat_id, user_id)
 
                     metrics.ws_time_to_process.observe(
