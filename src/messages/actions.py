@@ -6,7 +6,7 @@ from dependency_injector.wiring import inject, Provide
 
 from src.messages.model import Message
 from container import AppContainer, MessagesRepo
-from src.sockets_manager import WebSocketBroadcaster
+from src.sockets_manager import get_broadcaster
 from src import metrics
 from monitor import Monitor
 
@@ -14,7 +14,7 @@ from monitor import Monitor
 chat_router = APIRouter(prefix="/messages", tags=["messages"])
 
 
-broadcaster = WebSocketBroadcaster()
+broadcaster = get_broadcaster('pubsub')
 
 
 @chat_router.post("/",
@@ -86,9 +86,9 @@ async def edit_message(message_id: str, new_text: Annotated[str, Body()],
 
 @chat_router.websocket("/connect")
 async def on_message_event_v2(websocket: WebSocket,
-                              chat_id: Annotated[str, Query()],
-                              user_id: Annotated[str, Query()],
-                              recipient_id: Annotated[str, Query()],
+                              chat_id: Annotated[int, Query()],
+                              user_id: Annotated[int, Query()],
+                              recipient_id: Annotated[int, Query()],
                               layer: Annotated[int, Query()],
                               reply_id: Annotated[int | None, Query()] = None
                               ):
