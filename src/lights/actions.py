@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from dependency_injector.wiring import inject, Provide
 from src.lights.model import LightDTO
 from container import AppContainer, LightsRepo
@@ -13,7 +13,7 @@ lights_router = APIRouter(prefix="/lights", tags=['lights'])
 async def ack_light(
     chat_id: int,
     user_id: int,
-    amount: int = 0,
+    amount: int = Body(..., embed=True, gt=0),
     lights_repo: LightsRepo = Depends(Provide[AppContainer.lights_repo])
 ):
     await lights_repo.withdrawn(chat_id, user_id, amount)
