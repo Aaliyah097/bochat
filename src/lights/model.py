@@ -21,19 +21,16 @@ class LightDTO(BaseModel):
     user_id: int
     chat_id: int
     amount: int
-    total: int
-    operation: Operation
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-    acked: bool = False
+    updated_at: datetime = datetime.now()
 
     def __init__(self, *args, **kwargs):
-        _id = kwargs.get('_id')
+        _id = kwargs.get('_id') or kwargs.get('id')
         kwargs['id'] = str(_id) if _id else None
         super().__init__(*args, **kwargs)
 
     def __add__(self, other):
-        self.total += other.total
+        self.amount += other.amount
+        self.updated_at = datetime.now()
 
         return self
 
@@ -41,13 +38,9 @@ class LightDTO(BaseModel):
 class Light:
     def to_dto(self) -> LightDTO:
         return LightDTO(
-            id=None,
             user_id=self.user_id,
             chat_id=self.chat_id,
             amount=self.amount,
-            total=self.total,
-            operation=self.operation,
-            acked=False
         )
 
     def __init__(self,

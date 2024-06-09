@@ -8,9 +8,15 @@ from mongo_database import MongoDBClient
 class Repository:
     messages_collection = "messages"
     lights_collection = "lights"
+    mongo_client: MongoDBClient = MongoDBClient
 
-    def __init__(self):
-        self.mongo_client: MongoDBClient = MongoDBClient
+    @classmethod
+    async def create_indexes(cls):
+        async with cls.mongo_client(cls.lights_collection) as collection:
+            await collection.create_index(
+                [("user_id", 1), ("chat_id", 1)],
+                unique=True
+            )
 
     @staticmethod
     def get_now() -> datetime.datetime:

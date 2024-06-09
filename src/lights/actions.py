@@ -8,19 +8,15 @@ from container import AppContainer, LightsRepo
 lights_router = APIRouter(prefix="/lights", tags=['lights'])
 
 
-@lights_router.get("/",
-                   summary="Получить записи по лайтам, которые не выданы пользователю",
-                   response_model=List[LightDTO])
+@lights_router.post("/{chat_id}/{user_id}/withdrawn/", summary="Списать с пользователя N лайтов", response_model=None)
 @inject
-async def get_free_lights(chat_id: int, user_id: int,
-                          lights_repo: LightsRepo = Depends(Provide[AppContainer.lights_repo])):
-    return await lights_repo.get_free(chat_id, user_id)
-
-
-@lights_router.get("/{light_id}", summary="Начислить пользователю лайты", response_model=None)
-@inject
-async def ack_light(light_id, lights_repo: LightsRepo = Depends(Provide[AppContainer.lights_repo])):
-    await lights_repo.withdrawn(light_id)
+async def ack_light(
+    chat_id: int,
+    user_id: int,
+    amount: int = 0,
+    lights_repo: LightsRepo = Depends(Provide[AppContainer.lights_repo])
+):
+    await lights_repo.withdrawn(chat_id, user_id, amount)
 
 
 @lights_router.get("/{chat_id}/{user_id}", summary="Получить количество лайтов у пользователя в чате", response_model=int)

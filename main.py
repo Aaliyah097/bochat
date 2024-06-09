@@ -7,9 +7,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from src.repository import Repository
 from src.messages import chat_router
 from src.sockets_manager import WebSocketBroadcaster
 from src.lights.actions import lights_router
+from src.lights.repo import LightsRepo
 from src.notifications.actions import notifications_router
 from src.notifications import consumer
 from container import AppContainer
@@ -44,6 +46,7 @@ async def startup():
     global consumer_
     await RedisClient.connect()
     await MongoDBClient.connect()
+    await Repository.create_indexes()
 
     asyncio.create_task(consumer_.main())
     asyncio.create_task(Monitor.consume())
@@ -58,17 +61,3 @@ async def shutdown():
     await RedisClient.disconnect()
     await MongoDBClient.disconnect()
     await Monitor.stop()
-
-
-# app.mount("/static", StaticFiles(directory="web/static"), name="static")
-# templates = Jinja2Templates(directory="web/templates")
-
-
-# @app.get("/", response_class=HTMLResponse)
-# async def index(request: Request):
-#     return templates.TemplateResponse(name="index.html", context={'request': request})
-
-
-# @app.get("/firebase-messaging-sw.js")
-# async def firebase():
-#     return FileResponse('web/static/firebase-messaging-sw.js')
