@@ -193,8 +193,6 @@ class PubSubBroadcaster(WebSocketBroadcaster):
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, layer: int, reply_id: int | None):
         channel_name = self.CHANNEL_NAME % str(chat_id)
 
-        metrics.ws_connections.inc()
-
         async for data in websocket.iter_text():
             if len(data) == 0:
                 continue
@@ -226,8 +224,6 @@ class PubSubBroadcaster(WebSocketBroadcaster):
 
             metrics.ws_messages.inc()
             metrics.ws_bytes_in.inc(amount=int(len(data)))
-
-        metrics.ws_connections.dec()
 
     async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int):
         channel_name = self.CHANNEL_NAME % str(chat_id)

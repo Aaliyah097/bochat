@@ -94,6 +94,7 @@ async def on_message_event_v2(websocket: WebSocket,
                               ):
     await Monitor.log("Пользователь вошел в чат", chat_id, user_id)
     await websocket.accept()
+    metrics.ws_connections.inc()
 
     await run_until_first_complete(
         (broadcaster.chat_ws_receiver, {
@@ -112,4 +113,5 @@ async def on_message_event_v2(websocket: WebSocket,
             'recipient_id': recipient_id
         }),
     )
+    metrics.ws_connections.dec()
     await Monitor.log("Пользователь вышел из чата", chat_id, user_id)
