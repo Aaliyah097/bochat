@@ -25,6 +25,13 @@ async def send_notification(device_token: str, title: str, text: str, data: dict
                             'title': title,
                             'body': text,
                         },
+                        "apns": {
+                            "payload": {
+                                "aps": {
+                                    "sound": "default"
+                                }
+                            }
+                        },
                         'data': data
                     }
                 })
