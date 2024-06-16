@@ -24,8 +24,8 @@ async def send_notification(device_token: str, title: str, text: str, data: dict
                         'notification': {
                             'title': title,
                             'body': text,
-                            'sound': 'default'
                         },
+                        'sound': 'default',
                         'data': data
                     }
                 })
