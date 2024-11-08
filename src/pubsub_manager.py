@@ -11,12 +11,16 @@ class RedisClient:
 
     @classmethod
     async def connect(cls):
-        cls.redis_connection = aioredis.Redis(connection_pool=cls.pool)
+        if not cls.redis_connection:
+            cls.redis_connection = aioredis.Redis(connection_pool=cls.pool)
         await Monitor.log("Подключение к Редис открыто")
 
     @classmethod
     async def disconnect(cls):
-        await cls.redis_connection.close()
+        if cls.redis_connection:
+            await cls.redis_connection.close()
+        if cls.pool:
+            await cls.pool.disconnect()
         await Monitor.log("Подключение к Редис закрыто")
 
     async def __aenter__(self) -> 'Redis':

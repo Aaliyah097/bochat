@@ -258,6 +258,7 @@ class PubSubBroadcaster(WebSocketBroadcaster):
                         (time.time() - start) * 1000)
             finally:
                 await pubsub.unsubscribe(channel_name)
+                await pubsub.close()
 
 
 def get_broadcaster(broadcast_backend: str) -> WebSocketBroadcaster:
