@@ -11,13 +11,16 @@ class Message(BaseModel):
     created_at: datetime = datetime.now()
     is_edited: bool = Field(default=False)
     id: str | None = None
-    reply_id: int | None = None
+    reply_id: int | str | None = None
     is_read: bool = Field(default=False)
     recipient_id: int | None = None
+    sent_at: datetime = datetime.now()
 
     def __init__(self, *args, **kwargs):
         _id = kwargs.get('_id') or kwargs.get('id')
         kwargs['id'] = str(_id) if _id else None
+        if not kwargs.get('sent_at'):
+            kwargs['sent_at'] = kwargs.get('created_at', datetime.now())
         super().__init__(*args, **kwargs)
 
     def serialize(self) -> dict:
@@ -27,10 +30,11 @@ class Message(BaseModel):
             'text': self.text or '',
             'created_at': str(self.created_at) or '',
             'is_edited': str(self.is_edited) or 'False',
-            'id': self.id or 0,
-            'reply_id': self.reply_id or 0,
+            'id': self.id or "",
+            'reply_id': self.reply_id or "",
             'is_read': str(self.is_read) or 'False',
-            'recipient_id': str(self.recipient_id) or 0
+            'recipient_id': str(self.recipient_id) or 0,
+            'sent_at': str(self.sent_at) or ''
         }
 
     @staticmethod

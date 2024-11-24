@@ -48,6 +48,8 @@ class MessagesRepo(Repository):
             return
 
         message.created_at = self.get_now()
+        if not message.sent_at:
+            message.sent_at = message.created_at
 
         async with self.mongo_client(self.messages_collection) as collection:
             result = await collection.insert_one(message.model_dump())

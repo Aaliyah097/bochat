@@ -1,3 +1,5 @@
+import datetime
+import json
 from abc import ABC, abstractclassmethod
 from collections import defaultdict
 import redis
@@ -194,6 +196,13 @@ class PubSubBroadcaster(WebSocketBroadcaster):
         channel_name = self.CHANNEL_NAME % str(chat_id)
 
         async for data in websocket.iter_text():
+            try:
+                encoded_data = json.loads(data)
+                data, sent_at = encoded_data.get(
+                    'message', ""), encoded_data.get('sent_at')
+            except (json.JSONDecodeError, ValueError):
+                sent_at = None
+
             if len(data) == 0:
                 continue
             if data == 'PING':
@@ -211,7 +220,8 @@ class PubSubBroadcaster(WebSocketBroadcaster):
                     reply_id=reply_id,
                     is_read=False,
                     is_edited=False,
-                    recipient_id=recipient_id
+                    recipient_id=recipient_id,
+                    sent_at=sent_at
                 )
             except ValidationError:
                 continue
