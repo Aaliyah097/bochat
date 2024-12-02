@@ -1,20 +1,23 @@
 import json
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, Field
+
+
+tzinfo = timezone(timedelta(hours=3))
 
 
 class Message(BaseModel):
     user_id: int
     chat_id: int
     text: str
-    created_at: datetime = datetime.now()
+    created_at: datetime = datetime.now(tzinfo)
     is_edited: bool = Field(default=False)
     id: str | None = None
     reply_id: int | str | None = None
     is_read: bool = Field(default=False)
     recipient_id: int | None = None
-    sent_at: datetime = datetime.now()
+    sent_at: datetime = datetime.now(tzinfo)
 
     def __init__(self, *args, **kwargs):
         _id = kwargs.get('_id') or kwargs.get('id')

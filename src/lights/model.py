@@ -94,14 +94,14 @@ class Light:
 
         if minutes >= 480:
             probabilities = {
-                0: 0.1,
+                # 0: 0.1,
                 1: 0.15,
                 2: 0.25,
                 3: 0.5
             }
         elif 30 <= minutes < 480:
             probabilities = {
-                0: 0.1,
+                # 0: 0.1,
                 1: 0.25,
                 3: 0.3,
                 2: 0.35,
@@ -111,7 +111,7 @@ class Light:
                 3: 0.1,
                 2: 0.15,
                 1: 0.25,
-                0: 0.5,
+                # 0: 0.5,
             }
 
         likes = 0
