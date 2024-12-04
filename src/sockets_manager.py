@@ -74,9 +74,12 @@ class WebSocketBroadcaster(ABC):
                       are_both_online=are_both_online,
                       users_layer=layer)
 
-        light = await self.lights_repo.save_up(light.to_dto())
+        await self.lights_repo.save_up(light.to_dto())
 
-        package = Package(message=message, lights=light)
+        package = Package(
+            message=message,
+            lights=light.to_dto() if light.amount else None
+        )
 
         return package
 
@@ -172,7 +175,8 @@ class QueueBroadcater(WebSocketBroadcaster):
 
                     try:
                         package = await self.handle_message(message, layer)
-                    except asyncio.exceptions.CancelledError:
+                    except asyncio.exceptions.CancelledError as e:
+                        print(str(e))
                         package = Package(
                             message=message,
                             light=None
@@ -252,7 +256,7 @@ class PubSubBroadcaster(WebSocketBroadcaster):
 
                     try:
                         package = await self.handle_message(message, layer)
-                    except asyncio.exceptions.CancelledError:
+                    except asyncio.exceptions.CancelledError as e:
                         package = Package(
                             message=message,
                             light=None

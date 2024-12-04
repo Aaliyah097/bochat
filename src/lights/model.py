@@ -81,9 +81,8 @@ class Light:
         if self.are_both_online:
             self.total *= 2
 
-    @staticmethod
-    def roll(minutes, chance) -> int:
-        if not minutes or not chance:
+    def roll(self, minutes, chance) -> int:
+        if not chance:
             return 0
 
         try:
@@ -94,24 +93,24 @@ class Light:
 
         if minutes >= 480:
             probabilities = {
-                # 0: 0.1,
-                1: 0.15,
-                2: 0.25,
-                3: 0.5
+                0: 0.1,
+                1: 0.25,
+                2: 0.5,
+                3: 1
             }
         elif 30 <= minutes < 480:
             probabilities = {
-                # 0: 0.1,
-                1: 0.25,
-                3: 0.3,
-                2: 0.35,
+                0: 0.1,
+                1: 0.35,
+                3: 0.7,
+                2: 1,
             }
         else:
             probabilities = {
-                3: 0.1,
-                2: 0.15,
-                1: 0.25,
-                # 0: 0.5,
+                0: 0.5,
+                1: 0.75,
+                2: 0.9,
+                3: 1,
             }
 
         likes = 0
@@ -120,7 +119,10 @@ class Light:
             if chance <= prob:
                 break
 
-        return int(likes)
+        if self.are_both_online:
+            likes = likes * 2
+
+        return likes
 
     def _random_lights(self):
         if self.message and self.message.created_at and self.prev_message and self.prev_message.created_at:
