@@ -255,11 +255,17 @@ class PubSubBroadcaster(WebSocketBroadcaster):
                     message = Message.json_loads(message['data'])
 
                     try:
-                        package = await self.handle_message(message, layer)
+                        if int(user_id) != int(message.user_id):
+                            package = Package(
+                                message=message,
+                                lights=None
+                            )
+                        else:
+                            package = await self.handle_message(message, layer)
                     except asyncio.exceptions.CancelledError as e:
                         package = Package(
                             message=message,
-                            light=None
+                            lights=None
                         )
 
                     try:
