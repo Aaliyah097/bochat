@@ -17,7 +17,39 @@ chat_router = APIRouter(prefix="/messages", tags=["messages"])
 broadcaster = get_broadcaster('pubsub')
 
 
+@chat_router.post(
+    "/{chat_id}/{user_id}/mark-read",
+    summary="Пометить все сообщения в чате прочитанными для пользователя",
+    response_model=None
+)
+@inject
+async def mark_all_read(
+    chat_id: int,
+    user_id: int,
+    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])
+):
+    await messages_repo.update_has_new_messages(
+        user_id,
+        chat_id,
+        False
+    )
+
+
+@chat_router.get(
+    "/{user_id}/new",
+    summary='Список чатов, в которых у пользователя есть непрочитанные сообщения',
+    response_model=list[int]
+)
+@inject
+async def list_has_user_new_messages_by_chats(
+    user_id: int,
+    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])
+):
+    return await messages_repo.list_has_new_messages(user_id)
+
+
 @chat_router.post("/",
+                  deprecated=True,
                   summary="Пометить сообщения прочитанными", response_model=None)
 @inject
 async def mark_read(messages_ids: list[str],
@@ -39,7 +71,9 @@ async def list_messages(
     return await messages_repo.list_messages(chat_id, page, size)
 
 
-@chat_router.get("/new", summary="Список новых сообщений для пользователя в чате", response_model=List[Message])
+@chat_router.get("/new",
+                 deprecated=True,
+                 summary="Список новых сообщений для пользователя в чате", response_model=List[Message])
 @inject
 async def list_new_messages(
     chat_id: int,
@@ -53,6 +87,7 @@ async def list_new_messages(
 
 
 @chat_router.get("/new/count",
+                 deprecated=True,
                  summary="Количество новых сообщений для пользователя в чате",
                  response_model=int)
 @inject
@@ -66,6 +101,7 @@ async def new_nessages_count(
 
 
 @chat_router.get("/new/by-chats",
+                 deprecated=True,
                  summary="Количество новых сообщений для пользователя в каждом чате",
                  response_model=dict[int, int])
 @inject

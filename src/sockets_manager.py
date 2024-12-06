@@ -92,109 +92,6 @@ class WebSocketBroadcaster(ABC):
         raise NotImplementedError()
 
 
-class QueueBroadcater(WebSocketBroadcaster):
-    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, layer: int, reply_id: int | None):
-        await self._create_group(chat_id, user_id)
-        metrics.ws_connections.inc()
-
-        async for data in websocket.iter_text():
-            if len(data) == 0:
-                continue
-            if data == 'PING':
-                try:
-                    await websocket.send_text('PONG')
-                except websockets.exceptions.ConnectionClosedOK:
-                    await Monitor.log("Клиент разорвал соединение")
-                continue
-
-            try:
-                message = Message(
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    text=data,
-                    reply_id=reply_id,
-                    is_read=False,
-                    is_edited=False,
-                    recipient_id=recipient_id
-                )
-            except ValidationError:
-                continue
-
-            serialized_message = message.serialize()
-
-            async with RedisClient() as r:
-                await r.xadd(
-                    self.STREAM_NAME % str(chat_id),
-                    serialized_message,
-                    maxlen=self.MAX_STREAM_LEN
-                )
-            await Monitor.log("Сообщение добавлено в очередь", chat_id, user_id)
-
-            async with RedisClient() as r:
-                await r.xadd('notifications', serialized_message)
-            await Monitor.log("Уведомление добавлено в очередь", chat_id, user_id)
-
-            metrics.ws_messages.inc()
-            metrics.ws_bytes_in.inc(amount=int(len(data)))
-
-        metrics.ws_connections.dec()
-        await self.process_queue(websocket, chat_id, layer, user_id, recipient_id)
-
-    async def chat_ws_sender(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int):
-        while True:
-            await self._process_queue(websocket, chat_id, layer, user_id, recipient_id)
-
-    async def _process_queue(self, websocket: WebSocket, chat_id: int, layer: int, user_id: int, recipient_id: int):
-        stream_name = self.STREAM_NAME % str(chat_id)
-        group_name = self.GROUP_NAME % (str(chat_id), str(user_id))
-        async with RedisClient() as r:
-            events = await r.xreadgroup(group_name, str(user_id), streams={stream_name: '>'})
-            # events = await r.xread({self.STREAM_NAME % str(chat_id): '0'})
-            if not events:
-                return
-
-            for event in events:
-                stream, messages = event
-                for message_id, message_data in messages:
-                    message = Message.deserialize(message_data)
-                    start = time.time()
-                    try:
-                        if int(message.user_id) == int(user_id):
-                            message = await self.messages_repo.add_message(
-                                message
-                            )
-                        await Monitor.log("Сообщение сохранено в БД", chat_id, user_id)
-                        await r.xack(stream_name, group_name, message_id)
-                        # await r.xdel(
-                        #     self.STREAM_NAME % str(chat_id),
-                        #     message_id)
-                        await Monitor.log("Сообщение удалено из очереди", chat_id, user_id)
-                    except asyncio.exceptions.CancelledError:
-                        await Monitor.log("Задача отменена во время обработки сообщения")
-                        break
-
-                    try:
-                        package = await self.handle_message(message, layer)
-                    except asyncio.exceptions.CancelledError as e:
-                        print(str(e))
-                        package = Package(
-                            message=message,
-                            light=None
-                        )
-                    await Monitor.log("Сформирован пакет для отправки по вебсокету", chat_id, user_id)
-
-                    # if int(message.user_id) != int(user_id):
-                    try:
-                        await websocket.send_text(message.model_dump_json())
-                    except websockets.exceptions.ConnectionClosedOK:
-                        await Monitor.log(
-                            "Клиент разорвал соединение")
-                    await Monitor.log("Сообщение отправлено по вебсокету", chat_id, user_id)
-
-                    metrics.ws_time_to_process.observe(
-                        (time.time() - start) * 1000)
-
-
 class PubSubBroadcaster(WebSocketBroadcaster):
     async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, layer: int, reply_id: int | None):
         channel_name = self.CHANNEL_NAME % str(chat_id)
@@ -231,6 +128,11 @@ class PubSubBroadcaster(WebSocketBroadcaster):
                 continue
 
             message = await self.messages_repo.add_message(message)
+            await self.messages_repo.update_has_new_messages(
+                recipient_id,
+                chat_id,
+                True
+            )
 
             async with RedisClient() as r:
                 await r.publish(channel_name, message.json_dumps())
@@ -285,7 +187,7 @@ def get_broadcaster(broadcast_backend: str) -> WebSocketBroadcaster:
     if not broadcast_backend:
         raise ValueError("Не определен бэкенд брокастера")
 
-    if broadcast_backend == 'queue':
-        return QueueBroadcater()
     elif broadcast_backend == 'pubsub':
+        return PubSubBroadcaster()
+    else:
         return PubSubBroadcaster()

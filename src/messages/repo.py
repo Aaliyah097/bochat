@@ -12,6 +12,43 @@ from src.pubsub_manager import RedisClient
 
 
 class MessagesRepo(Repository):
+    has_new_messages_key = "has_mew_msgs_"
+    has_new_messages_key_delimeter = ":"
+
+    async def list_has_new_messages(self, user_id: int) -> list[int]:
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            return []
+
+        async with RedisClient() as client:
+            keys = await client.keys(pattern=f'{self.has_new_messages_key}{str(user_id)}{self.has_new_messages_key_delimeter}*')
+            return [
+                int(key.decode(
+                    'utf-8').split(self.has_new_messages_key_delimeter)[1])
+                for key in keys
+            ]
+
+    async def update_has_new_messages(
+        self, user_id: int, chat_id: int, new_state: bool
+    ):
+        try:
+            user_id = int(user_id)
+            chat_id = int(chat_id)
+        except ValueError:
+            return
+
+        if not isinstance(new_state, bool):
+            return
+
+        key = f"{self.has_new_messages_key}{str(user_id)}{self.has_new_messages_key_delimeter}{str(chat_id)}"
+
+        async with RedisClient() as client:
+            if new_state:
+                await client.setnx(key, 1)
+            else:
+                await client.delete(key)
+
     async def session(self):
         pass
 
