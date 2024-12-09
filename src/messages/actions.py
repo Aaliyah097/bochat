@@ -18,6 +18,25 @@ broadcaster = get_broadcaster('pubsub')
 
 
 @chat_router.post(
+    "/last",
+    summary="Получить последнее сообщение в каждом чате",
+    response_model=dict[int, Message],
+)
+@inject
+async def list_last_messages(
+    chats: list[int],
+    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])
+):
+    result = {}
+    for chat_id in chats:
+        last_message = await messages_repo.get_last_chat_message(chat_id)
+        if not last_message:
+            continue
+        result[chat_id] = last_message
+    return result
+
+
+@chat_router.post(
     "/{chat_id}/{user_id}/mark-read",
     summary="Пометить все сообщения в чате прочитанными для пользователя",
     response_model=None

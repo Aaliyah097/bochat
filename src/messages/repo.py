@@ -14,6 +14,7 @@ from src.pubsub_manager import RedisClient
 class MessagesRepo(Repository):
     has_new_messages_key = "has_mew_msgs_"
     has_new_messages_key_delimeter = ":"
+    last_message_key = "last_message_"
 
     async def list_has_new_messages(self, user_id: int) -> list[int]:
         try:
@@ -63,7 +64,7 @@ class MessagesRepo(Repository):
         chat_id = str(chat_id)
 
         async with RedisClient() as client:
-            await client.set(f"last_message_{chat_id}", message.model_dump_json())
+            await client.set(f"{self.last_message_key}{chat_id}", message.model_dump_json())
 
     # redis
     async def get_last_chat_message(self, chat_id: int) -> Union[Message, None]:
@@ -73,7 +74,7 @@ class MessagesRepo(Repository):
         chat_id = str(chat_id)
 
         async with RedisClient() as client:
-            res = await client.get(f"last_message_{chat_id}")
+            res = await client.get(f"{self.last_message_key}{chat_id}")
             return Message.model_validate_json(res.decode("utf-8")) if res else None
 
     # mongo
