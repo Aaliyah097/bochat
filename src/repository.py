@@ -8,6 +8,7 @@ from mongo_database import MongoDBClient
 class Repository:
     messages_collection = "messages"
     lights_collection = "lights"
+    onboardings_collection = "onboardings"
     mongo_client: MongoDBClient = MongoDBClient
 
     @classmethod

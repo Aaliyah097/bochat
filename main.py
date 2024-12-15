@@ -14,6 +14,8 @@ from src.lights.actions import lights_router
 from src.lights.repo import LightsRepo
 from src.notifications.actions import notifications_router
 from src.notifications import consumer
+from src.onboarding.preload import preload_assistant_messages
+from src.onboarding.actions import onboarding_router
 from container import AppContainer
 from src.pubsub_manager import RedisClient
 from mongo_database import MongoDBClient
@@ -25,6 +27,7 @@ app = FastAPI()
 app.include_router(chat_router)
 app.include_router(lights_router)
 app.include_router(notifications_router)
+app.include_router(onboarding_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +51,7 @@ async def startup():
     await MongoDBClient.connect()
     await Repository.create_indexes()
 
+    await preload_assistant_messages()
     asyncio.create_task(consumer_.main())
     asyncio.create_task(Monitor.consume())
 
