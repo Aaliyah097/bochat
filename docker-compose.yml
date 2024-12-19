@@ -17,6 +17,9 @@ services:
     image: redis:alpine
     container_name: redis-chat-db
     command: redis-server
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis_data:/data
     ports:
       - "6379:6379"
     networks:

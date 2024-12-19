@@ -10,3 +10,4 @@ venv/
 bo-chat-ad15e-firebase-adminsdk-4kbbm-4e6ab2e20e.json
 web/
 *.log
+redis_data/
