@@ -26,6 +26,10 @@ class Action(str, Enum):
     REOPEN_CHAT = "reopen_chat"
     CLEAR_LAYER = "clear_layer"
     CHARGE_LIGHTS = "charge_lights"
+    CHARGE_SCRATCH_LIGHTS = "charge_scratch_lights"
+    CHARGE_PIXEL_LIGHTS = "charge_pixel_lights"
+    CLEAR_SCRATCH_LAYER = "clear_scratch_layer"
+    CLEAR_PIXEL_LAYER = "clear_pixel_layer"
 
 
 class NextAction(BaseModel):

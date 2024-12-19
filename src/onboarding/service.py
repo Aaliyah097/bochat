@@ -11,11 +11,11 @@ class Script:
             (Action.SEND_MESSAGE, None),  # 1
             (Action.REOPEN_CHAT, None),
             (Action.SEND_MESSAGE, None),  # 2
-            (Action.CHARGE_LIGHTS, 20),  # 20
-            (Action.CLEAR_LAYER, None),  # 1
+            (Action.CHARGE_SCRATCH_LIGHTS, 20),  # 20
+            (Action.CLEAR_SCRATCH_LAYER, None),  # 1
             (Action.SEND_MESSAGE, None),  # 3
-            (Action.CHARGE_LIGHTS, 300),  # 300
-            (Action.CLEAR_LAYER, None),  # 2
+            (Action.CHARGE_PIXEL_LIGHTS, 300),  # 300
+            (Action.CLEAR_PIXEL_LAYER, None),  # 2
         ]
         self.counter = Counter([action[0] for action in self.actions])
 
