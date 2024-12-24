@@ -8,14 +8,14 @@ class Script:
     def __init__(self, onboarding_repo: OnboardingRepo):
         self._repo = onboarding_repo
         self.actions: list[tuple[Action, Any]] = [
-            (Action.SEND_MESSAGE, None),  # 1
+            (Action.SEND_MESSAGE, None),
             (Action.REOPEN_CHAT, None),
-            (Action.SEND_MESSAGE, None),  # 2
-            (Action.CHARGE_SCRATCH_LIGHTS, 20),  # 20
-            (Action.CLEAR_SCRATCH_LAYER, None),  # 1
-            (Action.SEND_MESSAGE, None),  # 3
-            (Action.CHARGE_PIXEL_LIGHTS, 300),  # 300
-            (Action.CLEAR_PIXEL_LAYER, None),  # 2
+            (Action.SEND_MESSAGE, None),
+            (Action.CHARGE_SCRATCH_LIGHTS, 20),
+            (Action.CLEAR_SCRATCH_LAYER, 20),
+            (Action.SEND_MESSAGE, None),
+            (Action.CHARGE_PIXEL_LIGHTS, 300),
+            (Action.CLEAR_PIXEL_LAYER, 300),
         ]
         self.counter = Counter([action[0] for action in self.actions])
 
