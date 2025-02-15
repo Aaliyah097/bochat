@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'built-in' // или 'master'
+    }
 
     environment {
         // Настройки Docker
