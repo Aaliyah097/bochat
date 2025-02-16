@@ -5,25 +5,25 @@ pipeline {
 apiVersion: v1
 kind: Pod
 metadata:
-    labels:
+  labels:
     app: kaniko
 spec:
-    containers:
+  containers:
     - name: kaniko
-    image: gcr.io/kaniko-project/executor:debug
-    command:
-    - /busybox/cat
-    tty: true
-    volumeMounts:
+      image: gcr.io/kaniko-project/executor:debug
+      command:
+        - tail
+        - "-f"
+        - /dev/null
+      tty: true
+      volumeMounts:
+        - name: regcred
+          mountPath: /kaniko/.docker/config.json
+          subPath: .dockerconfigjson
+  volumes:
     - name: regcred
-        mountPath: /kaniko/.docker
-        readOnly: true
-    volumes:
-    - name: regcred
-    secret:
-    secretName: regcred
-
-
+      secret:
+        secretName: regcred
 """
         }
     }
