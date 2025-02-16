@@ -2,19 +2,19 @@ pipeline {
     agent {
         kubernetes {
             yaml """
-            apiVersion: v1
-            kind: Pod
-            metadata:
-            labels:
-                app: kaniko
-            spec:
-            containers:
-            - name: kaniko
-                image: gcr.io/kaniko-project/executor:latest
-                command:
-                - cat
-                tty: true
-            """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: kaniko
+spec:
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:latest
+    command:
+    - cat
+    tty: true
+"""
         }
     }
     stages {
