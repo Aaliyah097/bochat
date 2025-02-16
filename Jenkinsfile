@@ -14,6 +14,10 @@ spec:
     command:
     - /busybox/cat
     tty: true
+    volumeMounts:
+    - name: regcred
+      mountPath: /kaniko/.docker
+      readOnly: true
 """
         }
     }
