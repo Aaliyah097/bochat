@@ -20,6 +20,13 @@ spec:
         - name: regcred
           mountPath: /kaniko/.docker/config.json
           subPath: .dockerconfigjson
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command:
+        - tail
+        - "-f"
+        - /dev/null
+      tty: true
   volumes:
     - name: regcred
       secret:
