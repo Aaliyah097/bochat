@@ -60,5 +60,19 @@ spec:
             }
           }
         }
+        stage('Update Deployment Manifest') {
+          steps {
+            // Обновляем манифест, подставляя новый тег
+            sh """
+                sed -i 's|image: .*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' deployment.yaml
+            """
+          }
+        }
+        stage('Deploy to Kubernetes') {
+          steps {
+              sh "kubectl apply -f deployment.yaml"
+              sh "kubectl rollout status deployment/bochat"
+          }
+        }
     }
 }
