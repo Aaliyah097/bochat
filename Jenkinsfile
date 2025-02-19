@@ -70,7 +70,17 @@ spec:
         }
         stage('Deploy to Kubernetes') {
           steps {
-              sh "kubectl apply -f deployment.yaml"
+              def targetNamespace = ''
+              if (env.BRANCH_NAME == 'develop') {
+                  targetNamespace = 'dev'
+              } else if (env.BRANCH_NAME == 'main') {
+                  targetNamespace = 'prod'
+              } else {
+                  error "Unsupported branch: ${env.BRANCH_NAME}"
+              }
+              echo "Deploying to namespace: ${targetNamespace}"
+
+              sh "kubectl apply -f deployment.yaml -n ${targetNamespace}"
               sh "kubectl rollout status deployment/bochat"
           }
         }
