@@ -94,7 +94,6 @@ spec:
                 sh "echo 'Hello from kubectl container'"
                 sh "kubectl version --client"
                 sh "kubectl apply -f deployment.yaml -n ${targetNamespace}"
-                sh "kubectl rollout status deployment/bochat"
               }
             }
           }
