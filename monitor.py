@@ -72,7 +72,7 @@ class Monitor:
 
     @classmethod
     async def log(cls, msg: str, chat_id: int | None = None, user_id: int | None = None, unknown: bool = False) -> None:
-        if not self.is_active:
+        if not cls.is_active:
             return
 
         payload = ";".join([
