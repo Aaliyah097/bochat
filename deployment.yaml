@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bochat
+  labels:
+    app: bochat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bochat
+  template:
+    metadata:
+      labels:
+        app: bochat
+      annotations:
+        prometheus.io/scrape: "true"        # Включает сбор метрик
+        prometheus.io/port: "8080"            # Порт, на котором доступны метрики
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: bochat
+          image: aaliyah097/bochat:latest  # Тег будет заменён в пайплайне (например, на хэш коммита)
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: bochat
