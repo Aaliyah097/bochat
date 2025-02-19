@@ -90,8 +90,10 @@ spec:
               }
               echo "Deploying to namespace: ${targetNamespace}"
 
-              sh "kubectl apply -f deployment.yaml -n ${targetNamespace}"
-              sh "kubectl rollout status deployment/bochat"
+              container('kubectl') {
+                sh "kubectl apply -f deployment.yaml -n ${targetNamespace}"
+                sh "kubectl rollout status deployment/bochat"
+              }
             }
           }
         }
