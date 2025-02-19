@@ -27,10 +27,12 @@ spec:
 """
         }
     }
+
+    environment {
+      IMAGE_NAME = 'aaliyah097/bochat'
+    }
+
     stages {
-        environment {
-          IMAGE_NAME = 'aaliyah097/bochat'
-        }
         stage('Checkout') {
           steps {
             // В Multibranch Pipeline Jenkins сам клонирует репозиторий,
@@ -70,6 +72,7 @@ spec:
         }
         stage('Deploy to Kubernetes') {
           steps {
+            script{
               def targetNamespace = ''
               if (env.BRANCH_NAME == 'develop') {
                   targetNamespace = 'dev'
@@ -82,6 +85,7 @@ spec:
 
               sh "kubectl apply -f deployment.yaml -n ${targetNamespace}"
               sh "kubectl rollout status deployment/bochat"
+            }
           }
         }
     }
