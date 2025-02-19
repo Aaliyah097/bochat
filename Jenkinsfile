@@ -73,7 +73,7 @@ spec:
           steps {
             // Обновляем манифест, подставляя новый тег
             sh """
-                sed -i 's|image: .*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' deployment.yaml
+                sed -i 's|image: .*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' ci-cd/deployment.yaml
             """
           }
         }
@@ -91,9 +91,8 @@ spec:
               echo "Deploying to namespace: ${targetNamespace}"
 
               container('kubectl') {
-                sh "echo 'Hello from kubectl container'"
-                sh "kubectl version --client"
-                sh "kubectl apply -f deployment.yaml -n ${targetNamespace}"
+                sh "kubectl apply -f ci-cd/deployment.yaml -n ${targetNamespace}"
+                sh "kubectl apply -f ci-cd/service.yaml -n ${targetNamespace}"
               }
             }
           }
