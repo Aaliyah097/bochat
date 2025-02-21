@@ -24,6 +24,7 @@ async def send_notification(device_token: str, title: str, text: str, data: dict
                         'notification': {
                             'title': title,
                             'body': text,
+                            'icon': 'assets/icons/android-launchericon-96-96.png',
                         },
                         "apns": {
                             "payload": {
