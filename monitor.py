@@ -9,7 +9,7 @@ from config import settings
 
 class Monitor:
     queue = asyncio.Queue()
-    is_active = True
+    is_active = False
 
     @classmethod
     async def stop(cls):

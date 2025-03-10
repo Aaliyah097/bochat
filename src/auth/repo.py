@@ -48,7 +48,10 @@ class AuthRepo:
 
         payload = jwt.decode(token, options={"verify_signature": False})
         exp = datetime.fromtimestamp(payload['exp'])
-        ttl = (exp - datetime.now()).seconds
+        now = datetime.now()
+        if exp <= now:
+            return False
+        ttl = (exp - now).seconds
 
         async with RedisClient() as session:
             await session.set(token, 1)

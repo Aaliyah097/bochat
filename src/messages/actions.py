@@ -1,6 +1,5 @@
-import time
 from typing import Annotated, List
-from fastapi import APIRouter, Depends, WebSocket, Query, WebSocketDisconnect, WebSocketException, Body
+from fastapi import APIRouter, Depends, WebSocket, Query, Body, HTTPException, status
 from fastapi.concurrency import run_until_first_complete
 from dependency_injector.wiring import inject, Provide
 
@@ -8,14 +7,12 @@ from src.messages.model import Message
 from container import AppContainer, MessagesRepo
 from src.sockets_manager import get_broadcaster
 from src import metrics
-from monitor import Monitor
-from src.auth.auth import auth
+from src.auth.auth import auth, auth_ws
 
 
 chat_router = APIRouter(
     prefix="/messages",
     tags=["messages"],
-    dependencies=[Depends(auth)]
 )
 
 
@@ -30,7 +27,8 @@ broadcaster = get_broadcaster('pubsub')
 @inject
 async def list_last_messages(
     chats: list[int],
-    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])
+    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo]),
+    _=Depends(auth)
 ):
     result = {}
     for chat_id in chats:
@@ -50,7 +48,8 @@ async def list_last_messages(
 async def mark_all_read(
     chat_id: int,
     user_id: int,
-    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])
+    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo]),
+    _=Depends(auth)
 ):
     await messages_repo.update_has_new_messages(
         user_id,
@@ -67,7 +66,8 @@ async def mark_all_read(
 @inject
 async def list_has_user_new_messages_by_chats(
     user_id: int,
-    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])
+    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo]),
+    _=Depends(auth)
 ):
     return await messages_repo.list_has_new_messages(user_id)
 
@@ -77,7 +77,10 @@ async def list_has_user_new_messages_by_chats(
                   summary="Пометить сообщения прочитанными", response_model=None)
 @inject
 async def mark_read(messages_ids: list[str],
-                    messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])):
+                    messages_repo: MessagesRepo = Depends(
+                        Provide[AppContainer.messages_repo]),
+                    _=Depends(auth)
+                    ):
     await messages_repo.mark_read(messages_ids)
 
 
@@ -90,7 +93,8 @@ async def list_messages(
         page: Annotated[int, Query(ge=1)] = 1,
         size: Annotated[int, Query(ge=1)] = 1,
         messages_repo: MessagesRepo = Depends(
-            Provide[AppContainer.messages_repo])
+            Provide[AppContainer.messages_repo]),
+        _=Depends(auth)
 ):
     return await messages_repo.list_messages(chat_id, page, size)
 
@@ -105,7 +109,8 @@ async def list_new_messages(
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1)] = 1,
     messages_repo: MessagesRepo = Depends(
-        Provide[AppContainer.messages_repo])
+        Provide[AppContainer.messages_repo]),
+    _=Depends(auth)
 ):
     return await messages_repo.list_new_messages(chat_id, user_id, page, size)
 
@@ -119,7 +124,8 @@ async def new_nessages_count(
     chat_id: int,
     user_id: int,
     messages_repo: MessagesRepo = Depends(
-        Provide[AppContainer.messages_repo])
+        Provide[AppContainer.messages_repo]),
+    _=Depends(auth)
 ):
     return await messages_repo.count_new_messages_in_chat(chat_id, user_id)
 
@@ -132,7 +138,8 @@ async def new_nessages_count(
 async def count_new_nessages_by_chats(
     user_id: int,
     messages_repo: MessagesRepo = Depends(
-        Provide[AppContainer.messages_repo])
+        Provide[AppContainer.messages_repo]),
+    _=Depends(auth)
 ):
     return await messages_repo.count_new_messages_by_chats(user_id)
 
@@ -140,7 +147,10 @@ async def count_new_nessages_by_chats(
 @chat_router.patch("/{message_id}", response_model=None)
 @inject
 async def edit_message(message_id: str, new_text: Annotated[str, Body()],
-                       messages_repo: MessagesRepo = Depends(Provide[AppContainer.messages_repo])):
+                       messages_repo: MessagesRepo = Depends(
+                           Provide[AppContainer.messages_repo]),
+                       _=Depends(auth)
+                       ):
     await messages_repo.edit_message(message_id, new_text)
 
 
@@ -150,10 +160,17 @@ async def on_message_event_v2(websocket: WebSocket,
                               user_id: Annotated[int, Query()],
                               recipient_id: Annotated[int, Query()],
                               layer: Annotated[int, Query()],
-                              reply_id: Annotated[int | None, Query()] = None
+                              reply_id: Annotated[int | None, Query()] = None,
                               ):
-    await Monitor.log("Пользователь вошел в чат", chat_id, user_id)
-    await websocket.accept()
+    # await Monitor.log("Пользователь вошел в чат", chat_id, user_id)
+    await websocket.accept(
+        subprotocol=websocket.headers.get("sec-websocket-protocol")
+    )
+
+    if not await auth_ws(websocket.headers.get("sec-websocket-protocol") or ''):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     metrics.ws_connections.inc()
 
     await run_until_first_complete(
@@ -174,4 +191,4 @@ async def on_message_event_v2(websocket: WebSocket,
         }),
     )
     metrics.ws_connections.dec()
-    await Monitor.log("Пользователь вышел из чата", chat_id, user_id)
+    # await Monitor.log("Пользователь вышел из чата", chat_id, user_id)
