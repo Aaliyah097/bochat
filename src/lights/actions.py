@@ -1,11 +1,14 @@
-from typing import List
 from fastapi import APIRouter, Depends, Body
 from dependency_injector.wiring import inject, Provide
-from src.lights.model import LightDTO
 from container import AppContainer, LightsRepo
+from src.auth.auth import auth
 
 
-lights_router = APIRouter(prefix="/lights", tags=['lights'])
+lights_router = APIRouter(
+    prefix="/lights",
+    tags=['lights'],
+    dependencies=[Depends(auth)]
+)
 
 
 @lights_router.post("/{chat_id}/{user_id}/withdrawn/", summary="Списать с пользователя N лайтов", response_model=None)

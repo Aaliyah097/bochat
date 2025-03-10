@@ -9,9 +9,14 @@ from container import AppContainer, MessagesRepo
 from src.sockets_manager import get_broadcaster
 from src import metrics
 from monitor import Monitor
+from src.auth.auth import auth
 
 
-chat_router = APIRouter(prefix="/messages", tags=["messages"])
+chat_router = APIRouter(
+    prefix="/messages",
+    tags=["messages"],
+    dependencies=[Depends(auth)]
+)
 
 
 broadcaster = get_broadcaster('pubsub')

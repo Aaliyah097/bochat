@@ -13,7 +13,8 @@ class RedisSettings(BaseSettings):
 
 
 class AuthConfig(BaseSettings):
-    auth_uri: str
+    create_token_uri: str
+    verify_token_uri: str
     secret_key: str
     cors_allow_origins: str
 

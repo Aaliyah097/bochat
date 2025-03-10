@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends
 from dependency_injector.wiring import inject, Provide
 from src.notifications.device import Device
 from container import AppContainer, DeviceRepo
+from src.auth.auth import auth
 
 
 notifications_router = APIRouter(
-    prefix='/notifications', tags=['notifications'])
+    prefix='/notifications',
+    tags=['notifications'],
+    dependencies=[Depends(auth)]
+)
 
 
 @notifications_router.post("/register-device")

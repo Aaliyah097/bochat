@@ -1,18 +1,13 @@
 import asyncio
-from typing import Annotated
-from fastapi import FastAPI, Request, BackgroundTasks, Depends
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from src.repository import Repository
 from src.messages import chat_router
-from src.sockets_manager import WebSocketBroadcaster
 from src.lights.actions import lights_router
-from src.lights.repo import LightsRepo
 from src.notifications.actions import notifications_router
+from src.auth.actions import auth_router
 from src.notifications import consumer
 from src.onboarding.preload import preload_assistant_messages
 from src.onboarding.actions import onboarding_router
@@ -24,6 +19,7 @@ from config import settings
 
 
 app = FastAPI()
+app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(lights_router)
 app.include_router(notifications_router)

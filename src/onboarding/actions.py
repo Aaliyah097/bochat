@@ -2,9 +2,14 @@ from fastapi import APIRouter, Depends
 from .models import Action, Onboarding, UserAction, NextAction
 from dependency_injector.wiring import inject, Provide
 from container import AppContainer, OnboardingService
+from src.auth.auth import auth
 
 
-onboarding_router = APIRouter(prefix="/onboarding", tags=['onboarding'])
+onboarding_router = APIRouter(
+    prefix="/onboarding",
+    tags=['onboarding'],
+    dependencies=[Depends(auth)]
+)
 
 
 @onboarding_router.post(
