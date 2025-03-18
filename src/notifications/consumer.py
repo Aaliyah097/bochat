@@ -1,15 +1,12 @@
 import time
 import asyncio
 import redis
-from httpx import AsyncClient
 from src.notifications.google_auth import get_access_token
 from src.notifications.firebase import send_notification
 from src.notifications.repo import DeviceRepo
-from src.notifications.device import Device
 from src.pubsub_manager import RedisClient
 from src.messages.model import Message
 from config import settings
-from monitor import Monitor
 
 
 class Consumer:
@@ -76,9 +73,9 @@ class Consumer:
                                     access_token=self.access_token
                                 )
                             except Exception as e:
-                                await Monitor.log(str(e), unknown=True)
+                                print(str(e))
                                 continue
                         await r.xdel(self.STREAN_NAME, message_id)
                 except Exception as e:
-                    await Monitor.log(str(e), unknown=True)
+                    print(str(e))
                 await asyncio.sleep(0.1)
