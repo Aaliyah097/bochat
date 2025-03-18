@@ -15,4 +15,5 @@ COPY . /code
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "hypercorn main:app -w 3 --worker-class asyncio -b 0.0.0.0:8080 --reload"]
+CMD ["/usr/local/bin/hypercorn", "main:app", "-w", "3", "--worker-class", "asyncio", "-b", "0.0.0.0:8080", "--reload"]
+
