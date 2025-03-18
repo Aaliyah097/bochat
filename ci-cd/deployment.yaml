@@ -28,7 +28,8 @@ spec:
                 name: bochat
           volumeMounts:
             - name: config-volume
-              mountPath: /code
+              mountPath: /code/bo-chat-ad15e-firebase-adminsdk-4kbbm-4e6ab2e20e.json
+              subPath: bo-chat-ad15e-firebase-adminsdk-4kbbm-4e6ab2e20e.json
       volumes:
         - name: config-volume
           configMap:
