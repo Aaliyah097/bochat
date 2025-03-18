@@ -26,3 +26,10 @@ spec:
           envFrom:
             - secretRef:
                 name: bochat
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app
+      volumes:
+        - name: config-volume
+          configMap:
+            name: bochat

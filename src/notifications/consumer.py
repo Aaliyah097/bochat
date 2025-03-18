@@ -46,7 +46,7 @@ class Consumer:
                     await self._update_token()
                     try:
                         messages = await r.xreadgroup(self.GROUP_NAME, consumer_name, streams={self.STREAN_NAME: '>'}, count=1, noack=True)
-                    except redis.exceptions.ResponseError:
+                    except redis.exceptions.ResponseError as e:
                         await self._create_group()
                         continue
 
