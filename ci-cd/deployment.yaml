@@ -28,7 +28,7 @@ spec:
                 name: bochat
           volumeMounts:
             - name: config-volume
-              mountPath: /app
+              mountPath: /code
       volumes:
         - name: config-volume
           configMap:
