@@ -24,7 +24,6 @@ async def send_notification(device_token: str, title: str, text: str, data: dict
                         'notification': {
                             'title': title,
                             'body': text,
-                            'icon': 'assets/icons/android-launchericon-96-96.png',
                         },
                         "apns": {
                             "payload": {
@@ -37,8 +36,7 @@ async def send_notification(device_token: str, title: str, text: str, data: dict
                     }
                 })
         except (ReadTimeout, ConnectTimeout):
-            await Monitor.log("Таймаут подключения к firebase")
+            print("Таймаут подключения к firebase")
             return
         if response.status_code != 200:
-            await Monitor.log(response.text)
-        await Monitor.log("Уведомление отправлено на устройство")
+            print(response.text, response.status_code)
