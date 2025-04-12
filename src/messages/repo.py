@@ -1,5 +1,6 @@
 from typing import Union
 from bson import ObjectId
+from bson.errors import InvalidId
 import json
 import datetime
 import pytz
@@ -94,6 +95,21 @@ class MessagesRepo(Repository):
             message.id = str(result.inserted_id)
 
         return message
+
+    # mongo
+    async def get_message_by_id(self, message_id: str) -> Union[Message, None]:
+        if not message_id:
+            return
+
+        try:
+            message_id = ObjectId(str(message_id))
+        except InvalidId:
+            return None
+
+        async with self.mongo_client(self.messages_collection) as collection:
+            message = await collection.find_one({"_id": message_id})
+
+        return Message(**message) if message else None
 
     # mongo
     async def edit_message(self, message_id: str, new_text: str) -> Union[Message, None]:

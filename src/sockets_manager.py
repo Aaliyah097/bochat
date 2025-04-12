@@ -27,6 +27,7 @@ from monitor import Monitor
 class Package(BaseModel):
     message: Message
     lights: LightDTO | None
+    reply_message: Message | None = None
 
 
 class WebSocketBroadcaster(ABC):
@@ -93,16 +94,17 @@ class WebSocketBroadcaster(ABC):
 
 
 class PubSubBroadcaster(WebSocketBroadcaster):
-    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int, layer: int, reply_id: int | None):
+    async def chat_ws_receiver(self, websocket: WebSocket, chat_id: int, user_id: int, recipient_id: int):
         channel_name = self.CHANNEL_NAME % str(chat_id)
 
         async for data in websocket.iter_text():
             try:
                 encoded_data = json.loads(data)
-                data, sent_at = encoded_data.get(
-                    'message', ""), encoded_data.get('sent_at')
+                data, sent_at, reply_id = encoded_data.get(
+                    'message', ""), encoded_data.get('sent_at'), encoded_data.get('reply_id')
             except (json.JSONDecodeError, ValueError):
                 sent_at = None
+                reply_id = None
 
             if len(data) == 0:
                 continue
@@ -169,6 +171,9 @@ class PubSubBroadcaster(WebSocketBroadcaster):
                             message=message,
                             lights=None
                         )
+
+                    if package.message.reply_id:
+                        package.reply_message = await self.messages_repo.get_message_by_id(package.message.reply_id)
 
                     try:
                         await websocket.send_text(package.model_dump_json())
