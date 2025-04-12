@@ -8,6 +8,7 @@ from container import AppContainer, MessagesRepo
 from src.sockets_manager import get_broadcaster
 from src import metrics
 from src.auth.auth import auth, auth_ws
+from src.messages.model import MessagePackage
 
 
 chat_router = APIRouter(
@@ -96,6 +97,21 @@ async def list_messages(
             Provide[AppContainer.messages_repo]),
         _=Depends(auth)
 ):
+    return [mes.message for mes in await messages_repo.list_messages(chat_id, page, size)]
+
+
+@chat_router.get("/with-answer",
+                 summary='Список сообщений конкретного чата с объектами ответов',
+                 response_model=List[MessagePackage])
+@inject
+async def list_messages_with_asnwers(
+        chat_id: int,
+        page: Annotated[int, Query(ge=1)] = 1,
+        size: Annotated[int, Query(ge=1)] = 1,
+        messages_repo: MessagesRepo = Depends(
+            Provide[AppContainer.messages_repo]),
+        _=Depends(auth)
+):
     return await messages_repo.list_messages(chat_id, page, size)
 
 
@@ -166,10 +182,9 @@ async def on_message_event_v2(websocket: WebSocket,
         subprotocol=websocket.headers.get("sec-websocket-protocol")
     )
 
-    # TODO uncomment
-    # if not await auth_ws(websocket.headers.get("sec-websocket-protocol") or ''):
-    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-    #     return
+    if not await auth_ws(websocket.headers.get("sec-websocket-protocol") or ''):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
     metrics.ws_connections.inc()
 

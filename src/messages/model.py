@@ -22,6 +22,10 @@ class Message(BaseModel):
     def __init__(self, *args, **kwargs):
         _id = kwargs.get('_id') or kwargs.get('id')
         kwargs['id'] = str(_id) if _id else None
+
+        _reply_id = kwargs.get('reply_id')
+        kwargs['reply_id'] = str(_reply_id) if _reply_id else None
+
         if not kwargs.get('sent_at'):
             kwargs['sent_at'] = kwargs.get('created_at', datetime.now())
         super().__init__(*args, **kwargs)
@@ -54,3 +58,8 @@ class Message(BaseModel):
         return Message(**{
             k: v for k, v in json.loads(payload).items()
         })
+
+
+class MessagePackage(BaseModel):
+    message: Message
+    reply_to: Message | None
