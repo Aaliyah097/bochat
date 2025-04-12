@@ -159,17 +159,17 @@ async def on_message_event_v2(websocket: WebSocket,
                               chat_id: Annotated[int, Query()],
                               user_id: Annotated[int, Query()],
                               recipient_id: Annotated[int, Query()],
-                              layer: Annotated[int, Query()],
-                              reply_id: Annotated[int | None, Query()] = None,
+                              layer: Annotated[int, Query()]
                               ):
     # await Monitor.log("Пользователь вошел в чат", chat_id, user_id)
     await websocket.accept(
         subprotocol=websocket.headers.get("sec-websocket-protocol")
     )
 
-    if not await auth_ws(websocket.headers.get("sec-websocket-protocol") or ''):
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
+    # TODO uncomment
+    # if not await auth_ws(websocket.headers.get("sec-websocket-protocol") or ''):
+    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    #     return
 
     metrics.ws_connections.inc()
 
@@ -178,8 +178,6 @@ async def on_message_event_v2(websocket: WebSocket,
             "websocket": websocket,
             "chat_id": chat_id,
             'user_id': user_id,
-            'layer': layer,
-            'reply_id': reply_id,
             'recipient_id': recipient_id
         }),
         (broadcaster.chat_ws_sender, {
