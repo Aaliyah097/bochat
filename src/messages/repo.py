@@ -1,12 +1,13 @@
 from typing import Union
 from bson import ObjectId
+from bson.errors import InvalidId
 import json
 import datetime
 import pytz
 from typing import List
 from sqlalchemy.sql import select, update, text
 from sqlalchemy import desc, func
-from src.messages.model import Message
+from src.messages.model import Message, MessagePackage
 from src.repository import Repository
 from src.pubsub_manager import RedisClient
 
@@ -89,11 +90,33 @@ class MessagesRepo(Repository):
         if not message.sent_at:
             message.sent_at = message.created_at
 
+        dumped_messsage = message.model_dump()
+        if message.reply_id:
+            try:
+                dumped_messsage['reply_id'] = ObjectId(str(message.reply_id))
+            except InvalidId:
+                dumped_messsage['reply_id'] = None
+
         async with self.mongo_client(self.messages_collection) as collection:
-            result = await collection.insert_one(message.model_dump())
+            result = await collection.insert_one(dumped_messsage)
             message.id = str(result.inserted_id)
 
         return message
+
+    # mongo
+    async def get_message_by_id(self, message_id: str) -> Union[Message, None]:
+        if not message_id:
+            return
+
+        try:
+            message_id = ObjectId(str(message_id))
+        except InvalidId:
+            return None
+
+        async with self.mongo_client(self.messages_collection) as collection:
+            message = await collection.find_one({"_id": message_id})
+
+        return Message(**message) if message else None
 
     # mongo
     async def edit_message(self, message_id: str, new_text: str) -> Union[Message, None]:
@@ -124,7 +147,7 @@ class MessagesRepo(Repository):
             )
 
     # mongo
-    async def list_messages(self, chat_id: int, page: int = 1, size: int = 1) -> List[Message]:
+    async def list_messages(self, chat_id: int, page: int = 1, size: int = 1) -> List[MessagePackage]:
         if not chat_id:
             return []
 
@@ -151,14 +174,45 @@ class MessagesRepo(Repository):
         offset = (page - 1) * size
 
         async with self.mongo_client(self.messages_collection) as collection:
-            cursor = collection.find({
-                'chat_id': chat_id,
-            }).sort("created_at", -1).skip(offset).limit(size)
+            cursor = collection.aggregate([
+                {"$match": {"chat_id": chat_id}},
+                {"$sort": {"created_at": -1}},
+                {"$skip": offset},
+                {"$limit": size},
+                {
+                    "$lookup": {
+                        "from": "messages",              # Название коллекции
+                        "localField": "reply_id",     # Поле в текущем документе
+                        "foreignField": "_id",           # Поле в документе, на который ссылаемся
+                        "as": "reply_to"                 # Как назвать вложенный результат
+                    }
+                },
+                {
+                    "$unwind": {
+                        "path": "$reply_to",
+                        "preserveNullAndEmptyArrays": True  # Чтобы оставить документы без вложений
+                    }
+                }
+            ])
 
-            return [Message(**doc) for doc in await cursor.to_list(length=size)]
+        result_messages = []
+        for result_message in await cursor.to_list(length=size):
+            if 'reply_to' in result_message:
+                reply_to = result_message.pop('reply_to')
+            else:
+                reply_to = None
+            result_messages.append(
+                MessagePackage(
+                    message=Message(**result_message),
+                    reply_to=Message(**reply_to) if reply_to else None
+                )
+            )
+
+        return result_messages
 
     # mongo
     async def list_new_messages(self, chat_id: int, user_id: int, page: int = 1, size: int = 1) -> List[Message]:
+        # deprecated
         if not chat_id or not user_id:
             return []
 

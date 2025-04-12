@@ -8,6 +8,7 @@ from container import AppContainer, MessagesRepo
 from src.sockets_manager import get_broadcaster
 from src import metrics
 from src.auth.auth import auth, auth_ws
+from src.messages.model import MessagePackage
 
 
 chat_router = APIRouter(
@@ -96,6 +97,21 @@ async def list_messages(
             Provide[AppContainer.messages_repo]),
         _=Depends(auth)
 ):
+    return [mes.message for mes in await messages_repo.list_messages(chat_id, page, size)]
+
+
+@chat_router.get("/with-answer",
+                 summary='Список сообщений конкретного чата с объектами ответов',
+                 response_model=List[MessagePackage])
+@inject
+async def list_messages_with_asnwers(
+        chat_id: int,
+        page: Annotated[int, Query(ge=1)] = 1,
+        size: Annotated[int, Query(ge=1)] = 1,
+        messages_repo: MessagesRepo = Depends(
+            Provide[AppContainer.messages_repo]),
+        _=Depends(auth)
+):
     return await messages_repo.list_messages(chat_id, page, size)
 
 
@@ -159,8 +175,7 @@ async def on_message_event_v2(websocket: WebSocket,
                               chat_id: Annotated[int, Query()],
                               user_id: Annotated[int, Query()],
                               recipient_id: Annotated[int, Query()],
-                              layer: Annotated[int, Query()],
-                              reply_id: Annotated[int | None, Query()] = None,
+                              layer: Annotated[int, Query()]
                               ):
     # await Monitor.log("Пользователь вошел в чат", chat_id, user_id)
     await websocket.accept(
@@ -178,8 +193,6 @@ async def on_message_event_v2(websocket: WebSocket,
             "websocket": websocket,
             "chat_id": chat_id,
             'user_id': user_id,
-            'layer': layer,
-            'reply_id': reply_id,
             'recipient_id': recipient_id
         }),
         (broadcaster.chat_ws_sender, {
