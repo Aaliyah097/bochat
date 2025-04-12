@@ -92,7 +92,10 @@ class MessagesRepo(Repository):
 
         dumped_messsage = message.model_dump()
         if message.reply_id:
-            dumped_messsage['reply_id'] = ObjectId(str(message.reply_id))
+            try:
+                dumped_messsage['reply_id'] = ObjectId(str(message.reply_id))
+            except InvalidId:
+                dumped_messsage['reply_id'] = None
 
         async with self.mongo_client(self.messages_collection) as collection:
             result = await collection.insert_one(dumped_messsage)
