@@ -7,7 +7,7 @@ import pytz
 from typing import List
 from sqlalchemy.sql import select, update, text
 from sqlalchemy import desc, func
-from src.messages.model import Message, MessagePackage
+from src.messages.model import Message, MessagePackage, UpdateMessage
 from src.repository import Repository
 from src.pubsub_manager import RedisClient
 
@@ -119,19 +119,23 @@ class MessagesRepo(Repository):
         return Message(**message) if message else None
 
     # mongo
-    async def edit_message(self, message_id: str, new_text: str) -> Union[Message, None]:
+    async def edit_message(self, message_id: str, payload: UpdateMessage) -> Union[Message, None]:
         if not message_id:
             return
 
-        if not new_text:
-            new_text = ''
-
         message_id = str(message_id)
+
+        payload_dict = payload.model_dump(exclude_none=True)
+        if not payload:
+            return
+
+        if 'text' in payload_dict:
+            payload_dict['is_edited'] = True
 
         async with self.mongo_client(self.messages_collection) as collection:
             await collection.update_one(
                 {"_id": ObjectId(message_id)},
-                {"$set": {'text': new_text}}
+                {"$set": payload_dict}
             )
 
     # mongo

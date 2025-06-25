@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, WebSocket, Query, Body, HTTPException, s
 from fastapi.concurrency import run_until_first_complete
 from dependency_injector.wiring import inject, Provide
 
-from src.messages.model import Message
+from src.messages.model import Message, UpdateMessage
 from container import AppContainer, MessagesRepo
 from src.sockets_manager import get_broadcaster
 from src import metrics
@@ -162,12 +162,12 @@ async def count_new_nessages_by_chats(
 
 @chat_router.patch("/{message_id}", response_model=None)
 @inject
-async def edit_message(message_id: str, new_text: Annotated[str, Body()],
+async def edit_message(message_id: str, payload: UpdateMessage,
                        messages_repo: MessagesRepo = Depends(
                            Provide[AppContainer.messages_repo]),
                        _=Depends(auth)
                        ):
-    await messages_repo.edit_message(message_id, new_text)
+    await messages_repo.edit_message(message_id, payload)
 
 
 @chat_router.websocket("/connect")

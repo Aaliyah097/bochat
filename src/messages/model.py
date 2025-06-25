@@ -18,6 +18,7 @@ class Message(BaseModel):
     is_read: bool = Field(default=False)
     recipient_id: int | None = None
     sent_at: datetime = datetime.now(tzinfo)
+    is_hidden: bool = False
 
     def __init__(self, *args, **kwargs):
         _id = kwargs.get('_id') or kwargs.get('id')
@@ -41,7 +42,8 @@ class Message(BaseModel):
             'reply_id': self.reply_id or "",
             'is_read': str(self.is_read) or 'False',
             'recipient_id': str(self.recipient_id) or 0,
-            'sent_at': str(self.sent_at) or ''
+            'sent_at': str(self.sent_at) or '',
+            'is_hidden': str(self.is_hidden)
         }
 
     @staticmethod
@@ -63,3 +65,8 @@ class Message(BaseModel):
 class MessagePackage(BaseModel):
     message: Message
     reply_to: Message | None
+
+
+class UpdateMessage(BaseModel):
+    text: str | None = None
+    is_hidden: bool | None = None
