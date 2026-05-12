@@ -1,5 +1,8 @@
 FROM python:3.11-alpine
 
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
 RUN apk add --no-cache bash postgresql-dev gcc musl-dev
 
 WORKDIR /code
