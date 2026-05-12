@@ -18,5 +18,5 @@ COPY . /code
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/hypercorn", "main:app", "-w", "3", "--worker-class", "asyncio", "-b", "0.0.0.0:8080"]
+CMD ["/usr/local/bin/hypercorn", "main:app", "-w", "3", "--worker-class", "asyncio", "-b", "0.0.0.0:8080", "--access-logfile", "-", "--error-logfile", "-", "--access-logformat", "%(h)s %(r)s %(s)s %(b)s %(D)s"]
 
